@@ -1,0 +1,21 @@
+#!/bin/bash
+
+blacklist=":-mno-avx256-split-unaligned-load:-mno-avx256-split-unaligned-store:-menable-experimental-extensions:-matomics:-march=rv64gcv1p0:-wd654:-V:-Werror:-Wall:-Wextra:-pedantic:-fprofile-correction:-fprofile-use:"
+
+# Remove blacklisted flags from the provided arguments
+new_args=""
+for arg in "$@"; do
+  if ! echo "$blacklist" | grep -q ":$arg:"; then
+    new_args="$new_args $arg"
+  fi
+done
+
+start_time=$(date +%s%3N)
+
+${LLVM_PATH}/clang++ $new_args ${FLAGS} -Wno-unused
+
+end_time=$(date +%s%3N)
+elapsed_time=$((end_time - start_time))
+
+[ ! -d $RESULTS_PATH/compile-time/${basename} ] && mkdir -p $RESULTS_PATH/compile-time/${basename}
+echo "$elapsed_time" >> $RESULTS_PATH/compile-time/${basename}/${CONFIG_NAME} || true
