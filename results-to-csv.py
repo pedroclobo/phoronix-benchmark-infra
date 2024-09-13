@@ -17,7 +17,7 @@ def get_runtime_results(results_dir):
 
             for result in root.findall(".//Result"):
                 title = result.find("Identifier").text
-                description = result.find("Description").text
+                description = result.find("Description").text or "No description"
                 scale = result.find("Scale").text
                 proportion = result.find("Proportion").text
                 for entry in result.findall(".//Data/Entry"):
