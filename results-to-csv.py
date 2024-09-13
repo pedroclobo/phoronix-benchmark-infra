@@ -1,0 +1,117 @@
+import pandas as pd
+import os
+import xml.etree.ElementTree as ET
+import argparse
+
+
+def get_runtime_results(results_dir):
+    results = []
+
+    for test in os.listdir(results_dir + "/test-results"):
+        for profile in os.listdir(results_dir + "/test-results/" + test):
+            profile_path = os.path.join(
+                results_dir + "/test-results", test, profile, "composite.xml"
+            )
+            tree = ET.parse(profile_path)
+            root = tree.getroot()
+
+            for result in root.findall(".//Result"):
+                title = result.find("Identifier").text
+                description = result.find("Description").text
+                scale = result.find("Scale").text
+                proportion = result.find("Proportion").text
+                for entry in result.findall(".//Data/Entry"):
+                    profile = entry.find("Identifier").text
+                    value = entry.find("Value").text
+                    results.append(
+                        (title, description, scale, proportion, profile, value)
+                    )
+
+    results.sort(key=lambda x: (x[0], x[4], x[1]))
+
+    return results
+
+
+def get_compile_time_results(results_dir):
+    results = []
+
+    for test in os.listdir(results_dir + "/compile-time"):
+        for profile in os.listdir(results_dir + "/compile-time/" + test):
+            profile_path = os.path.join(results_dir + "/compile-time", test, profile)
+            with open(profile_path, "r") as f:
+                results += [(test, profile, sum([int(line) for line in f]))]
+
+    results.sort(key=lambda x: (x[0], x[1]))
+
+    return results
+
+
+def write_compile_time_results(results, results_file):
+    print(f"Writing compile time results to {results_file}")
+    with open(results_file, "w") as f:
+        f.write("Test;Profile;Compile Time\n")
+        for test, profile, total in results:
+            f.write(f"{test};{profile};{total}\n")
+
+
+def write_runtime_results(results, results_file):
+    print(f"Writing runtime time results to {results_file}")
+    with open(results_file, "w") as f:
+        f.write("Test;Description;Scale;Proportion;Profile;Value\n")
+        for test, description, scale, proportion, profile, value in results:
+            f.write(f"{test};{description};{scale};{proportion};{profile};{value}\n")
+
+
+def merge_compile_time_results(results_file):
+    df = pd.read_csv(results_file, sep=";")
+    pivot_table = df.pivot_table(
+        index=["Test"],
+        columns="Profile",
+        values="Compile Time",
+    )
+    pivot_table.to_csv(results_file, sep=";")
+
+
+def merge_runtime_results(results_file):
+    df = pd.read_csv(results_file, sep=";")
+    pivot_table = df.pivot_table(
+        index=["Test", "Description", "Scale", "Proportion"],
+        columns="Profile",
+        values="Value",
+    )
+    pivot_table.to_csv(results_file, sep=";")
+
+
+if __name__ == "__main__":
+
+    # User must supply results directory
+    # Optionally, results can be merged across profiles
+    parser = argparse.ArgumentParser(description="Convert results to CSV")
+    parser.add_argument("results_dir", type=str, help="Results directory")
+    parser.add_argument(
+        "-m", "--merge", action="store_true", help="Merge results across profiles"
+    )
+    args = parser.parse_args()
+
+    # Check if the argument is a file
+    results_dir = args.results_dir
+    if not os.path.isdir(results_dir):
+        print(f"Results directory {results_dir} does not exist!")
+        exit(1)
+
+    CSV_PATH = results_dir + "/csv"
+    RUNTIME_RESULTS_FILE = CSV_PATH + "/runtime-results.csv"
+    COMPILE_TIME_RESULTS_FILE = CSV_PATH + "/compile-time-results.csv"
+
+    # Create the csv directory if it does not exist already
+    if not os.path.exists(CSV_PATH):
+        os.makedirs(CSV_PATH)
+
+    write_compile_time_results(
+        get_compile_time_results(results_dir), COMPILE_TIME_RESULTS_FILE
+    )
+    write_runtime_results(get_runtime_results(results_dir), RUNTIME_RESULTS_FILE)
+
+    if args.merge:
+        merge_compile_time_results(COMPILE_TIME_RESULTS_FILE)
+        merge_runtime_results(RUNTIME_RESULTS_FILE)
