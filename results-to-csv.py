@@ -46,6 +46,25 @@ def get_compile_time_results(results_dir):
     return results
 
 
+def get_object_size_results(results_dir):
+    results = []
+
+    for test in os.listdir(results_dir + "/object-size"):
+        for profile in os.listdir(results_dir + "/object-size/" + test):
+            profile_path = os.path.join(results_dir + "/object-size", test, profile)
+            with open(profile_path, "r") as f:
+                sum = 0
+                for line in f:
+                    size, filename = line.split("\t")
+                    if filename.strip().endswith(".o"):
+                        sum += int(size)
+                results += [(test, profile, sum)]
+
+    results.sort(key=lambda x: (x[0], x[1]))
+
+    return results
+
+
 def write_compile_time_results(results, results_file):
     print(f"Writing compile time results to {results_file}")
     with open(results_file, "w") as f:
@@ -60,6 +79,14 @@ def write_runtime_results(results, results_file):
         f.write("Test;Description;Scale;Proportion;Profile;Value\n")
         for test, description, scale, proportion, profile, value in results:
             f.write(f"{test};{description};{scale};{proportion};{profile};{value}\n")
+
+
+def write_object_size_results(results, results_file):
+    print(f"Writing object size results to {results_file}")
+    with open(results_file, "w") as f:
+        f.write("Test;Profile;Size\n")
+        for test, profile, size in results:
+            f.write(f"{test};{profile};{size}\n")
 
 
 def merge_compile_time_results(results_file):
@@ -78,6 +105,16 @@ def merge_runtime_results(results_file):
         index=["Test", "Description", "Scale", "Proportion"],
         columns="Profile",
         values="Value",
+    )
+    pivot_table.to_csv(results_file, sep=";")
+
+
+def merge_object_size_results(results_file):
+    df = pd.read_csv(results_file, sep=";")
+    pivot_table = df.pivot_table(
+        index=["Test"],
+        columns="Profile",
+        values="Size",
     )
     pivot_table.to_csv(results_file, sep=";")
 
@@ -102,6 +139,7 @@ if __name__ == "__main__":
     CSV_PATH = results_dir + "/csv"
     RUNTIME_RESULTS_FILE = CSV_PATH + "/runtime-results.csv"
     COMPILE_TIME_RESULTS_FILE = CSV_PATH + "/compile-time-results.csv"
+    OBJECT_SIZE_RESULTS_FILE = CSV_PATH + "/object-size-results.csv"
 
     # Create the csv directory if it does not exist already
     if not os.path.exists(CSV_PATH):
@@ -111,7 +149,11 @@ if __name__ == "__main__":
         get_compile_time_results(results_dir), COMPILE_TIME_RESULTS_FILE
     )
     write_runtime_results(get_runtime_results(results_dir), RUNTIME_RESULTS_FILE)
+    write_object_size_results(
+        get_object_size_results(results_dir), OBJECT_SIZE_RESULTS_FILE
+    )
 
     if args.merge:
         merge_compile_time_results(COMPILE_TIME_RESULTS_FILE)
         merge_runtime_results(RUNTIME_RESULTS_FILE)
+        merge_object_size_results(OBJECT_SIZE_RESULTS_FILE)
