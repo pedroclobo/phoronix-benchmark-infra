@@ -55,8 +55,11 @@ def get_object_size_results(results_dir):
             with open(profile_path, "r") as f:
                 sum = 0
                 for line in f:
-                    size, filename = line.split("\t")
-                    if filename.strip().endswith(".o"):
+                    # File output has a tab
+                    if (len(line.split("\t"))) != 3:
+                        continue
+                    size, _, type = line.split("\t")
+                    if "ELF" in type:
                         sum += int(size)
                 results += [(test, profile, sum)]
 
