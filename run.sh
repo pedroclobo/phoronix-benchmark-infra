@@ -57,7 +57,9 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 	# Measure object size
 	SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)
 	[ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
-	du -ab $RESULTS_PATH/installed-tests/$p > $SIZE_DIR/$CONFIG_NAME
+	du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
+		echo -e "$size\t$file\t$(file -b "$file")"
+	done > $SIZE_DIR/$CONFIG_NAME
 
 	batch_setup=$(echo y && echo n && echo n && echo y && echo n && echo y && echo y)
 	echo $batch_setup | $PTS batch-setup
