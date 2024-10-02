@@ -395,20 +395,9 @@ if __name__ == "__main__":
         if not os.path.exists(PLOT_PATH):
             os.makedirs(PLOT_PATH)
 
-        COMPILE_TIME_PLOT_DIR = PLOT_PATH + "/compile-time"
-        if not os.path.exists(COMPILE_TIME_PLOT_DIR):
-            os.makedirs(COMPILE_TIME_PLOT_DIR)
-        plot_compile_time_results(COMPILE_TIME_RESULTS_FILE, COMPILE_TIME_PLOT_DIR)
-
-        RUNTIME_PLOT_DIR = PLOT_PATH + "/runtime"
-        if not os.path.exists(RUNTIME_PLOT_DIR):
-            os.makedirs(RUNTIME_PLOT_DIR)
-        plot_runtime_results(RUNTIME_RESULTS_FILE, RUNTIME_PLOT_DIR)
-
-        OBJECT_SIZE_PLOT_DIR = PLOT_PATH + "/object-size"
-        if not os.path.exists(OBJECT_SIZE_PLOT_DIR):
-            os.makedirs(OBJECT_SIZE_PLOT_DIR)
-        plot_object_size_results(OBJECT_SIZE_RESULTS_FILE, OBJECT_SIZE_PLOT_DIR)
+        plot_compile_time_results(COMPILE_TIME_RESULTS_FILE, PLOT_PATH)
+        plot_runtime_results(RUNTIME_RESULTS_FILE, PLOT_PATH)
+        plot_object_size_results(OBJECT_SIZE_RESULTS_FILE, PLOT_PATH)
 
     if args.merge:
         merge_compile_time_results(COMPILE_TIME_RESULTS_FILE)
