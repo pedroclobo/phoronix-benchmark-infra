@@ -151,6 +151,7 @@ def plot_runtime_results(results_file, plot_dir):
             plot_file = f"{plot_dir}/{test.split('/')[-1]}-{escaped_description}.png"
             print(f"Plotting runtime for {test} in {plot_file}")
             description_df = test_df[test_df["Description"] == description]
+            description_df = description_df.astype({"Value": "float"})
             description_df.plot(x="Profile", y="Value", kind="barh")
             scale = description_df["Scale"].iloc[0]
             proportion = description_df["Proportion"].iloc[0]
