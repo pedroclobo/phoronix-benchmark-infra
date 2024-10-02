@@ -169,6 +169,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert results to CSV")
     parser.add_argument("results_dir", type=str, help="Results directory")
     parser.add_argument(
+        "-c", "--csv", action="store_true", help="Plot results from CSV"
+    )
+    parser.add_argument(
         "-m", "--merge", action="store_true", help="Merge results across profiles"
     )
     parser.add_argument(
@@ -191,13 +194,23 @@ if __name__ == "__main__":
     if not os.path.exists(CSV_PATH):
         os.makedirs(CSV_PATH)
 
-    write_compile_time_results(
-        get_compile_time_results(results_dir), COMPILE_TIME_RESULTS_FILE
-    )
-    write_runtime_results(get_runtime_results(results_dir), RUNTIME_RESULTS_FILE)
-    write_object_size_results(
-        get_object_size_results(results_dir), OBJECT_SIZE_RESULTS_FILE
-    )
+    if not args.csv:
+        write_compile_time_results(
+            get_compile_time_results(results_dir), COMPILE_TIME_RESULTS_FILE
+        )
+        write_runtime_results(get_runtime_results(results_dir), RUNTIME_RESULTS_FILE)
+        write_object_size_results(
+            get_object_size_results(results_dir), OBJECT_SIZE_RESULTS_FILE
+        )
+    else:
+        for results_file in [
+            COMPILE_TIME_RESULTS_FILE,
+            RUNTIME_RESULTS_FILE,
+            OBJECT_SIZE_RESULTS_FILE,
+        ]:
+            if not os.path.exists(results_file):
+                print(f"Results file {results_file} does not exist!")
+                exit(1)
 
     if args.plot:
         PLOT_PATH = results_dir + "/plots"
