@@ -23,7 +23,7 @@ def get_runtime_results(results_dir):
                 proportion = result.find("Proportion").text
                 for entry in result.findall(".//Data/Entry"):
                     profile = entry.find("Identifier").text
-                    value = entry.find("Value").text
+                    value = entry.find("Value").text or float("nan")
                     results.append(
                         (title, description, scale, proportion, profile, value)
                     )
@@ -142,6 +142,7 @@ def plot_compile_time_results(results_file, plot_dir):
 # If the test only has one description, just do one plot for that test
 def plot_runtime_results(results_file, plot_dir):
     df = pd.read_csv(results_file, sep=";")
+    df = df[df["Value"].notna()]
     tests = df["Test"].unique()
     for test in tests:
         test_df = df[df["Test"] == test]
