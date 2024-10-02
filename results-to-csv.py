@@ -4,6 +4,7 @@ import numpy as np
 import os
 import xml.etree.ElementTree as ET
 import argparse
+from matplotlib.ticker import AutoMinorLocator
 
 
 def get_runtime_results(results_dir):
@@ -201,26 +202,68 @@ def plot_compile_time_results(results_file, plot_dir):
 # Do a plot for each test and, for each test, do a plot for each description
 # If the test only has one description, just do one plot for that test
 def plot_runtime_results(results_file, plot_dir):
+    plot_file = f"{plot_dir}/runtime.png"
+    print(f"Plotting runtime results to {plot_file}")
+
+    # Read data and remove test version
     df = pd.read_csv(results_file, sep=";")
-    df = df[df["Value"].notna()]
-    tests = df["Test"].unique()
-    for test in tests:
-        test_df = df[df["Test"] == test]
-        descriptions = test_df["Description"].unique()
-        for description in descriptions:
-            escaped_description = description.replace(" ", "-").replace(":", "").lower()
-            plot_file = f"{plot_dir}/{test.split('/')[-1]}-{escaped_description}.png"
-            print(f"Plotting runtime for {test} in {plot_file}")
-            description_df = test_df[test_df["Description"] == description]
-            description_df = description_df.astype({"Value": "float"})
-            description_df.plot(x="Profile", y="Value", kind="barh")
-            scale = description_df["Scale"].iloc[0]
-            proportion = description_df["Proportion"].iloc[0]
-            plt.title(f"Runtime for {test} ({description})")
-            plt.ylabel(f"{scale} ({proportion})")
-            plt.xlabel("Profile")
-            plt.savefig(plot_file)
-            plt.close()
+    df["Test"] = df["Test"].apply(
+        lambda x: "-".join(x.split("/", 1)[1].split("-")[:-1])
+    )
+
+    _, ax = plt.subplots(figsize=(10, 6))
+    ax.set_facecolor("#F6F8FA")
+
+    # Pivot the data and sort by Test
+    df = df.pivot_table(
+        index=("Test", "Description", "Scale", "Proportion"),
+        columns="Profile",
+        values="Value",
+    ).reset_index()
+    df.sort_values(by="Test", ascending=False, inplace=True)
+
+    df_percentage = pd.Series(
+        np.where(
+            df["Proportion"] == "HIB",
+            (df["base"] - df["byte"]) / df["byte"] * 100,
+            (df["byte"] - df["base"]) / df["base"] * 100,
+        ),
+        index=df.index,
+    )
+
+    colors = []
+    for percentage in df_percentage.values.flatten():
+        colors.append("#CF222E" if percentage < 0 else "#116329")
+
+    df_percentage.plot(kind="barh", ax=ax, color=colors, width=0.8)
+
+    ax.set(ylabel=None)
+    plt.xlabel("Improvement Relative to Baseline (%)", fontsize=12, color="#24292F")
+
+    # Prevent annotations from going outside the plot
+    min_percentage = df_percentage.min()
+    max_percentage = df_percentage.max()
+    ax.set_xlim(min_percentage * 1.05, max(max_percentage * 1.05, 0.5))
+
+    ax.grid(
+        True,
+        which="both",
+        axis="x",
+        linestyle="dotted",
+        color="#8B949E",
+        alpha=0.7,
+    )
+
+    ax.axvline(x=0, color="black", linestyle="dotted", linewidth=0.9)
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    ax.tick_params(which="minor", length=4, color="#8B949E")
+    ax.set_yticks(range(len(df)))
+    ax.set_yticklabels(df["Test"].tolist(), fontsize=10, color="#24292F")
+    plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+
+    plt.subplots_adjust(bottom=0.1, top=0.99, left=0.12, right=0.98)
+    plt.savefig(plot_file, dpi=300)
+    plt.close()
 
 
 def plot_object_size_results(results_file, plot_dir):
