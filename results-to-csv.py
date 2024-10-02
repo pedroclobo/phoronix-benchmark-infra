@@ -138,13 +138,14 @@ def plot_compile_time_results(results_file, plot_dir):
     df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
     df.plot(kind="bar", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
 
-    plt.xlabel("Test", fontsize=12, color="#24292F")
+    ax.set(xlabel=None)
     plt.ylabel("Time (sec)", fontsize=12, color="#24292F")
 
     # Prevent annotations from going outside the plot
     max_value = df.max().max()
     ax.set_ylim(1, max_value + 80)
 
+    # Tilt x-axis labels for better readability
     plt.xticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
     ax.grid(
@@ -162,7 +163,9 @@ def plot_compile_time_results(results_file, plot_dir):
         byte_value = df.loc[test, "byte"]
 
         if not np.isnan(base_value):
-            percentage_change = ((byte_value - base_value) / base_value) * 100
+            percentage_change = round(((byte_value - base_value) / base_value) * 100, 1)
+            if percentage_change == 0.0:
+                percentage_change *= percentage_change
             change_text = f"{percentage_change:.1f}%"
         else:
             change_text = "nan%"
@@ -170,22 +173,16 @@ def plot_compile_time_results(results_file, plot_dir):
         mid_x = i
         ax.text(
             mid_x,
-            max(base_value, byte_value) + 20,
+            max(1.5, max(base_value, byte_value) + 20),
             change_text,
             ha="center",
-            color=("#CF222E" if percentage_change >= 0 else "#116329"),
+            color=(
+                "#CF222E"
+                if percentage_change > 0
+                else "#116329" if percentage_change < 0 else "#B08800"
+            ),
             fontsize=10,
             fontweight="bold",
-        )
-
-        # Plot arrow between the two bars
-        ax.annotate(
-            "",
-            xy=(mid_x + 0.1, byte_value),
-            xytext=(mid_x - 0.1, base_value),
-            arrowprops=dict(
-                facecolor="black", edgecolor="black", arrowstyle="->", lw=1.5
-            ),
         )
 
     ax.legend(
@@ -196,7 +193,7 @@ def plot_compile_time_results(results_file, plot_dir):
         frameon=True,
     )
 
-    plt.subplots_adjust(bottom=0.23, top=0.93)
+    plt.subplots_adjust(bottom=0.2, top=0.98, left=0.085, right=0.98)
     plt.savefig(plot_file, dpi=300)
     plt.close()
 
