@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 import os
 import xml.etree.ElementTree as ET
 import argparse
@@ -124,18 +125,80 @@ def merge_object_size_results(results_file):
 
 
 def plot_compile_time_results(results_file, plot_dir):
+    plot_file = f"{plot_dir}/compile-time.png"
+    print(f"Plotting compile time results to {plot_file}")
+
+    # Read data, remove test version and convert compile time to seconds
     df = pd.read_csv(results_file, sep=";")
-    tests = df["Test"].unique()
-    for test in tests:
-        plot_file = f"{plot_dir}/{test}.png"
-        print(f"Plotting compile time for {test} in {plot_file}")
-        test_df = df[df["Test"] == test]
-        test_df.plot(x="Profile", y="Compile Time", kind="barh")
-        plt.title(f"Compile Time for {test}")
-        plt.ylabel("Time (ms)")
-        plt.xlabel("Profile")
-        plt.savefig(plot_file)
-        plt.close()
+    df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
+    df["Compile Time"] = df["Compile Time"] / 1000
+
+    _, ax = plt.subplots(figsize=(10, 6))
+    ax.set_facecolor("#F6F8FA")
+    df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
+    df.plot(kind="bar", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+
+    plt.xlabel("Test", fontsize=12, color="#24292F")
+    plt.ylabel("Time (sec)", fontsize=12, color="#24292F")
+
+    # Prevent annotations from going outside the plot
+    max_value = df.max().max()
+    ax.set_ylim(1, max_value + 80)
+
+    plt.xticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+
+    ax.grid(
+        True,
+        which="both",
+        axis="y",
+        linestyle="dotted",
+        color="#8B949E",
+        alpha=0.7,
+    )
+
+    # Annotate plots with regression percentage
+    for i, test in enumerate(df.index):
+        base_value = df.loc[test, "base"]
+        byte_value = df.loc[test, "byte"]
+
+        if not np.isnan(base_value):
+            percentage_change = ((byte_value - base_value) / base_value) * 100
+            change_text = f"{percentage_change:.1f}%"
+        else:
+            change_text = "nan%"
+
+        mid_x = i
+        ax.text(
+            mid_x,
+            max(base_value, byte_value) + 20,
+            change_text,
+            ha="center",
+            color=("#CF222E" if percentage_change >= 0 else "#116329"),
+            fontsize=10,
+            fontweight="bold",
+        )
+
+        # Plot arrow between the two bars
+        ax.annotate(
+            "",
+            xy=(mid_x + 0.1, byte_value),
+            xytext=(mid_x - 0.1, base_value),
+            arrowprops=dict(
+                facecolor="black", edgecolor="black", arrowstyle="->", lw=1.5
+            ),
+        )
+
+    ax.legend(
+        title="Profile",
+        loc="upper right",
+        fontsize=12,
+        title_fontsize=14,
+        frameon=True,
+    )
+
+    plt.subplots_adjust(bottom=0.23, top=0.93)
+    plt.savefig(plot_file, dpi=300)
+    plt.close()
 
 
 # Do a plot for each test and, for each test, do a plot for each description
