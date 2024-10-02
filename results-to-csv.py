@@ -227,18 +227,77 @@ def plot_runtime_results(results_file, plot_dir):
 
 
 def plot_object_size_results(results_file, plot_dir):
+    plot_file = f"{plot_dir}/object-size.png"
+    print(f"Plotting object size results to {plot_file}")
+
+    # Read data, remove test version and convert object size to MB
     df = pd.read_csv(results_file, sep=";")
-    tests = df["Test"].unique()
-    for test in tests:
-        plot_file = f"{plot_dir}/{test}.png"
-        print(f"Plotting object size for {test} in {plot_file}")
-        test_df = df[df["Test"] == test]
-        test_df.plot(x="Profile", y="Size", kind="barh")
-        plt.title(f"Object size for {test}")
-        plt.ylabel("bytes")
-        plt.xlabel("Profile")
-        plt.savefig(plot_file)
-        plt.close()
+    df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
+    df["Size"] = df["Size"] / (1024 * 1024)
+
+    _, ax = plt.subplots(figsize=(10, 6))
+    ax.set_facecolor("#F6F8FA")
+    df = df.pivot_table(index="Test", columns="Profile", values="Size")
+    df.plot(kind="bar", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+
+    ax.set(xlabel=None)
+    plt.ylabel("Size (MB)", fontsize=12, color="#24292F")
+
+    # Prevent annotations from going outside the plot
+    max_value = df.max().max()
+    ax.set_ylim(1, max_value * 1.05)
+
+    # Tilt x-axis labels for better readability
+    plt.xticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+
+    ax.grid(
+        True,
+        which="both",
+        axis="y",
+        linestyle="dotted",
+        color="#8B949E",
+        alpha=0.7,
+    )
+
+    # Annotate plots with regression percentage
+    for i, test in enumerate(df.index):
+        base_value = df.loc[test, "base"]
+        byte_value = df.loc[test, "byte"]
+
+        if not np.isnan(base_value):
+            percentage_change = round(((byte_value - base_value) / base_value) * 100, 1)
+            if percentage_change == 0.0:
+                percentage_change *= percentage_change
+            change_text = f"{percentage_change:.1f}%"
+        else:
+            change_text = "nan%"
+
+        mid_x = i
+        ax.text(
+            mid_x,
+            max(1.5, max(base_value, byte_value) + 0.5),
+            change_text,
+            ha="center",
+            color=(
+                "#CF222E"
+                if percentage_change > 0
+                else "#116329" if percentage_change < 0 else "#B08800"
+            ),
+            fontsize=10,
+            fontweight="bold",
+        )
+
+    ax.legend(
+        title="Profile",
+        loc="upper right",
+        fontsize=12,
+        title_fontsize=14,
+        frameon=True,
+    )
+
+    plt.subplots_adjust(bottom=0.2, top=0.98, left=0.07, right=0.98)
+    plt.savefig(plot_file, dpi=300)
+    plt.close()
 
 
 if __name__ == "__main__":
