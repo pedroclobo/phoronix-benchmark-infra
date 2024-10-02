@@ -163,6 +163,21 @@ def plot_runtime_results(results_file, plot_dir):
             plt.close()
 
 
+def plot_object_size_results(results_file, plot_dir):
+    df = pd.read_csv(results_file, sep=";")
+    tests = df["Test"].unique()
+    for test in tests:
+        plot_file = f"{plot_dir}/{test}.png"
+        print(f"Plotting object size for {test} in {plot_file}")
+        test_df = df[df["Test"] == test]
+        test_df.plot(x="Profile", y="Size", kind="barh")
+        plt.title(f"Object size for {test}")
+        plt.ylabel("bytes")
+        plt.xlabel("Profile")
+        plt.savefig(plot_file)
+        plt.close()
+
+
 if __name__ == "__main__":
 
     # User must supply results directory
@@ -227,8 +242,11 @@ if __name__ == "__main__":
         if not os.path.exists(RUNTIME_PLOT_DIR):
             os.makedirs(RUNTIME_PLOT_DIR)
         plot_runtime_results(RUNTIME_RESULTS_FILE, RUNTIME_PLOT_DIR)
-        exit(0)
-        plot_object_size_results(OBJECT_SIZE_RESULTS_FILE)
+
+        OBJECT_SIZE_PLOT_DIR = PLOT_PATH + "/object-size"
+        if not os.path.exists(OBJECT_SIZE_PLOT_DIR):
+            os.makedirs(OBJECT_SIZE_PLOT_DIR)
+        plot_object_size_results(OBJECT_SIZE_RESULTS_FILE, OBJECT_SIZE_PLOT_DIR)
 
     if args.merge:
         merge_compile_time_results(COMPILE_TIME_RESULTS_FILE)
