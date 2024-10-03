@@ -199,8 +199,6 @@ def plot_compile_time_results(results_file, plot_dir):
     plt.close()
 
 
-# Do a plot for each test and, for each test, do a plot for each description
-# If the test only has one description, just do one plot for that test
 def plot_runtime_results(results_file, plot_dir):
     plot_file = f"{plot_dir}/runtime.png"
     print(f"Plotting runtime results to {plot_file}")
@@ -231,18 +229,26 @@ def plot_runtime_results(results_file, plot_dir):
         index=df.index,
     )
 
+    df["Percentage"] = df_percentage
+
+    # Group by Test and calculate the average percentage regression
+    avg_percentage = df.groupby("Test")["Percentage"].mean().reset_index()
+    avg_percentage.set_index("Test", inplace=True)
+    avg_percentage.sort_values(by="Test", inplace=True, ascending=False)
+    avg_percentage["Percentage"] = avg_percentage["Percentage"].astype(float)
+
     colors = []
-    for percentage in df_percentage.values.flatten():
+    for percentage in avg_percentage["Percentage"]:
         colors.append("#CF222E" if percentage < 0 else "#116329")
 
-    df_percentage.plot(kind="barh", ax=ax, color=colors, width=0.8)
+    avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
 
     ax.set(ylabel=None)
     plt.xlabel("Improvement Relative to Baseline (%)", fontsize=12, color="#24292F")
 
     # Prevent annotations from going outside the plot
-    min_percentage = df_percentage.min()
-    max_percentage = df_percentage.max()
+    min_percentage = avg_percentage.min().min()
+    max_percentage = avg_percentage.max().max()
     ax.set_xlim(min_percentage * 1.05, max(max_percentage * 1.05, 0.5))
 
     ax.grid(
@@ -257,8 +263,6 @@ def plot_runtime_results(results_file, plot_dir):
     ax.axvline(x=0, color="black", linestyle="dotted", linewidth=0.9)
     ax.xaxis.set_minor_locator(AutoMinorLocator(2))
     ax.tick_params(which="minor", length=4, color="#8B949E")
-    ax.set_yticks(range(len(df)))
-    ax.set_yticklabels(df["Test"].tolist(), fontsize=10, color="#24292F")
     plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
     plt.subplots_adjust(bottom=0.1, top=0.99, left=0.12, right=0.98)
