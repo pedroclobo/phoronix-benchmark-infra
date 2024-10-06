@@ -16,6 +16,7 @@ export LLVM_PATH=$(jq -r '.LLVM_PATH' "$config_file")
 export FLAGS=$(jq -r '.FLAGS' "$config_file")
 export RESULTS_PATH=$(jq -r '.RESULTS_PATH' "$config_file")
 export PROFILES_FILE=$(jq -r '.PROFILES_FILE' "$config_file")
+export NUM_CPU_CORES=$(jq -r '.NUM_CPU_CORES' "$config_file")
 
 # Verify the paths
 [ ! -d $PTS_BASE ] && echo "PTS not found!" && exit 1
