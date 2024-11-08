@@ -10,9 +10,11 @@ for arg in "$@"; do
   fi
 done
 
+[ ! -d $RESULTS_PATH/memory-usage/${basename} ] && mkdir -p $RESULTS_PATH/memory-usage/${basename}
+
 start_time=$(date +%s%3N)
 
-${LLVM_PATH}/clang $new_args ${FLAGS} -Wno-unused
+/usr/bin/time -v ${LLVM_PATH}/clang $new_args ${FLAGS} >> $RESULTS_PATH/memory-usage/${basename}/${CONFIG_NAME} 2>&1
 
 end_time=$(date +%s%3N)
 elapsed_time=$((end_time - start_time))

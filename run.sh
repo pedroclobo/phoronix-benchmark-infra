@@ -37,10 +37,12 @@ rm -rf $RESULTS_PATH/installed-tests/*
 rm -rf $RESULTS_PATH/test-results/*
 rm -rf $RESULTS_PATH/object-size/*
 rm -rf $RESULTS_PATH/compile-time/*
+rm -rf $RESULTS_PATH/memory-usage/*
 
-# Create directory for compile time and object size results
+# Create directory for compile time, object size and memory usage results
 [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
 [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
+[ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
 
 ./prepare-benchmark-env.sh 1
 
@@ -52,7 +54,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 	# Export basename variable, used to measure compile time in toolchain/
 	export basename=$(basename $p)
 
-	# Install and measure compile time
+	# Install and measure compile time and memory usage
 	$PTS debug-install $p
 
 	# Measure object size
