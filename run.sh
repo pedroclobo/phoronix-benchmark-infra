@@ -50,6 +50,10 @@ rm -rf $RESULTS_PATH/memory-usage/*
 export CC=$TOOLCHAIN_PATH/clang
 export CXX=$TOOLCHAIN_PATH/clang++
 
+# Set compiler flags
+export CFLAGS=$FLAGS
+export CXXFLAGS=$FLAGS
+
 # Generate phoronix user configuration
 batch_setup=$(
 	# Save test results when in batch mode
