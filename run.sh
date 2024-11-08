@@ -42,7 +42,7 @@ rm -rf $RESULTS_PATH/compile-time/*
 [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
 [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
 
-./prepare-benchmark-env.sh
+./prepare-benchmark-env.sh 1
 
 # Point to the toolchain wrappers
 export CC=$TOOLCHAIN_PATH/clang
