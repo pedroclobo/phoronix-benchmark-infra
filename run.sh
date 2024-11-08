@@ -50,6 +50,25 @@ rm -rf $RESULTS_PATH/memory-usage/*
 export CC=$TOOLCHAIN_PATH/clang
 export CXX=$TOOLCHAIN_PATH/clang++
 
+# Generate phoronix user configuration
+batch_setup=$(
+	# Save test results when in batch mode
+	echo y && \
+	# Open the web browser automatically when in batch mode
+	echo n && \
+	# Auto upload the results to OpenBenchmarking.org
+	echo y && \
+	# Prompt for test identifier
+	echo n && \
+	# Prompt for test description
+	echo n && \
+	# Prompt for saved results file-name
+	echo n && \
+	# Run all test options
+	echo y
+)
+echo $batch_setup | $PTS batch-setup
+
 for p in $(grep -v '#' $PROFILES_FILE); do
 	# Export basename variable, used to measure compile time in toolchain/
 	export basename=$(basename $p)
@@ -64,13 +83,9 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 		echo -e "$size\t$file\t$(file -b "$file")"
 	done > $SIZE_DIR/$CONFIG_NAME
 
-	batch_setup=$(echo y && echo n && echo n && echo y && echo n && echo y && echo y)
-	echo $batch_setup | $PTS batch-setup
-
 	# Run the test
 	result_name=`echo $p | cut -d'/' -f2`"_"
-	pts_command="echo -n '$result_name' | $PTS batch-run $p"
-	sh -c "$pts_command" 2>&1
+	echo -n $result_name | $PTS batch-run $p
 done
 
 rm -rf $RESULTS_PATH/installed-tests/*
