@@ -27,7 +27,7 @@ export NUM_CPU_CORES=$(jq -r '.NUM_CPU_CORES' "$config_file")
 [ ! -f $PROFILES_FILE ] && echo "Profiles file does not exist!" && exit 1
 
 # Phoronix test suite command
-export PTS="php $PTS_BASE/pts-core/phoronix-test-suite.php"
+export PTS="$PTS_BASE/phoronix-test-suite"
 
 # Export the profile name to be used as a identifier in phoronix
 export TEST_RESULTS_IDENTIFIER=$CONFIG_NAME
@@ -78,7 +78,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 	export basename=$(basename $p)
 
 	# Install and measure compile time and memory usage
-	$PTS debug-install $p
+	$PTS batch-install $p
 
 	# Measure object size
 	SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)
