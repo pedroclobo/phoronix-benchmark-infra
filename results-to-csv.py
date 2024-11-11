@@ -79,7 +79,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
             lambda x: "-".join(x.split("/", 1)[1].split("-")[:-1])
         )
 
-        _, ax = plt.subplots(figsize=(10, 6))
+        _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor("#F6F8FA")
 
         # Pivot the data and sort by Test
@@ -135,7 +135,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         ax.tick_params(which="minor", length=4, color="#8B949E")
         plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
-        plt.subplots_adjust(bottom=0.1, top=0.99, left=0.12, right=0.98)
+        plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
         plt.savefig(plot_file, dpi=300)
         plt.close()
 
@@ -179,25 +179,26 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Compile Time"] = df["Compile Time"] / 1000
 
-        _, ax = plt.subplots(figsize=(10, 6))
+        _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor("#F6F8FA")
         df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
-        df.plot(kind="bar", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+        df.sort_values(by="Test", ascending=False, inplace=True)
+        df.plot(kind="barh", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
 
-        ax.set(xlabel=None)
-        plt.ylabel("Time (sec)", fontsize=12, color="#24292F")
+        ax.set(ylabel=None)
+        plt.xlabel("Time (sec)", fontsize=12, color="#24292F")
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
-        ax.set_ylim(1, max_value + 80)
+        ax.set_xlim(1, max_value * 1.1)
 
         # Tilt x-axis labels for better readability
-        plt.xticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+        plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
         ax.grid(
             True,
             which="both",
-            axis="y",
+            axis="x",
             linestyle="dotted",
             color="#8B949E",
             alpha=0.7,
@@ -218,10 +219,10 @@ class CompileTimeResultsExtractor(ResultsExtractor):
             else:
                 change_text = "nan%"
 
-            mid_x = i
+            x_min, x_max = ax.get_xlim()
             ax.text(
-                mid_x,
-                max(1.5, max(base_value, byte_value) + 20),
+                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                i - 0.1,
                 change_text,
                 ha="center",
                 color=(
@@ -235,13 +236,13 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         ax.legend(
             title="Profile",
-            loc="upper right",
+            loc="lower right",
             fontsize=12,
             title_fontsize=14,
             frameon=True,
         )
 
-        plt.subplots_adjust(bottom=0.2, top=0.98, left=0.085, right=0.98)
+        plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
         plt.savefig(plot_file, dpi=300)
         plt.close()
 
@@ -293,25 +294,26 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Size"] = df["Size"] / (1024 * 1024)
 
-        _, ax = plt.subplots(figsize=(10, 6))
+        _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor("#F6F8FA")
         df = df.pivot_table(index="Test", columns="Profile", values="Size")
-        df.plot(kind="bar", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+        df.sort_values(by="Test", ascending=False, inplace=True)
+        df.plot(kind="barh", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
 
-        ax.set(xlabel=None)
-        plt.ylabel("Size (MB)", fontsize=12, color="#24292F")
+        ax.set(ylabel=None)
+        plt.xlabel("Size (MB)", fontsize=12, color="#24292F")
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
-        ax.set_ylim(1, max_value * 1.05)
+        ax.set_xlim(1, max_value * 1.1)
 
         # Tilt x-axis labels for better readability
-        plt.xticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+        plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
         ax.grid(
             True,
             which="both",
-            axis="y",
+            axis="x",
             linestyle="dotted",
             color="#8B949E",
             alpha=0.7,
@@ -332,10 +334,10 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             else:
                 change_text = "nan%"
 
-            mid_x = i
+            x_min, x_max = ax.get_xlim()
             ax.text(
-                mid_x,
-                max(1.5, max(base_value, byte_value) + 0.5),
+                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                i - 0.1,
                 change_text,
                 ha="center",
                 color=(
@@ -355,7 +357,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             frameon=True,
         )
 
-        plt.subplots_adjust(bottom=0.2, top=0.98, left=0.07, right=0.98)
+        plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
         plt.savefig(plot_file, dpi=300)
         plt.close()
 
