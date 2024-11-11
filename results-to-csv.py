@@ -6,6 +6,24 @@ import xml.etree.ElementTree as ET
 import argparse
 from matplotlib.ticker import AutoMinorLocator
 
+BACKGROUND = "#F6F8FA"
+BLACK = "#24292E"
+BLUE = "#0366D6"
+BRIGHTBLACK = "#586069"
+BRIGHTBLUE = "#2188FF"
+BRIGHTCYAN = "#3192AA"
+BRIGHTGREEN = "#28A745"
+BRIGHTPURPLE = "#8A63D2"
+BRIGHTRED = "#CB2431"
+BRIGHTWHITE = "#959DA5"
+BRIGHTYELLOW = "#DBAB09"
+CYAN = "#1B7C83"
+GREEN = "#22863A"
+PURPLE = "#6F42C1"
+RED = "#D73A49"
+WHITE = "#6A737D"
+YELLOW = "#B08800"
+
 
 class ResultsExtractor:
     def __init__(self, results_dir):
@@ -80,7 +98,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         )
 
         _, ax = plt.subplots(figsize=(8, 6))
-        ax.set_facecolor("#F6F8FA")
+        ax.set_facecolor(BACKGROUND)
 
         # Pivot the data and sort by Test
         df = df.pivot_table(
@@ -109,7 +127,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
 
         colors = []
         for percentage in avg_percentage["Percentage"]:
-            colors.append("#CF222E" if percentage < 0 else "#116329")
+            colors.append(RED if percentage < 0 else GREEN)
 
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
 
@@ -180,20 +198,20 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         df["Compile Time"] = df["Compile Time"] / 1000
 
         _, ax = plt.subplots(figsize=(8, 6))
-        ax.set_facecolor("#F6F8FA")
+        ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
         df.sort_values(by="Test", ascending=False, inplace=True)
-        df.plot(kind="barh", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+        df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
 
         ax.set(ylabel=None)
-        plt.xlabel("Time (sec)", fontsize=12, color="#24292F")
+        plt.xlabel("Time (sec)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
         ax.set_xlim(1, max_value * 1.1)
 
         # Tilt x-axis labels for better readability
-        plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+        plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
 
         ax.grid(
             True,
@@ -226,9 +244,9 @@ class CompileTimeResultsExtractor(ResultsExtractor):
                 change_text,
                 ha="center",
                 color=(
-                    "#CF222E"
+                    BRIGHTRED
                     if percentage_change > 0
-                    else "#116329" if percentage_change < 0 else "#B08800"
+                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
                 ),
                 fontsize=10,
                 fontweight="bold",
@@ -295,20 +313,20 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         df["Size"] = df["Size"] / (1024 * 1024)
 
         _, ax = plt.subplots(figsize=(8, 6))
-        ax.set_facecolor("#F6F8FA")
+        ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Size")
         df.sort_values(by="Test", ascending=False, inplace=True)
-        df.plot(kind="barh", ax=ax, color=["#0969DA", "#FF8C00"], width=0.7)
+        df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
 
         ax.set(ylabel=None)
-        plt.xlabel("Size (MB)", fontsize=12, color="#24292F")
+        plt.xlabel("Size (MB)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
         ax.set_xlim(1, max_value * 1.1)
 
         # Tilt x-axis labels for better readability
-        plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
+        plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
 
         ax.grid(
             True,
@@ -341,9 +359,9 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
                 change_text,
                 ha="center",
                 color=(
-                    "#CF222E"
+                    BRIGHTRED
                     if percentage_change > 0
-                    else "#116329" if percentage_change < 0 else "#B08800"
+                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
                 ),
                 fontsize=10,
                 fontweight="bold",
