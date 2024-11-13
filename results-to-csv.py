@@ -88,7 +88,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         pivot_table.to_csv(results_file, sep=";")
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/runtime.png"
+        plot_file = f"{plot_dir}/runtime.svg"
         print(f"Plotting runtime results to {plot_file}")
 
         # Read data and remove test version
@@ -154,7 +154,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
-        plt.savefig(plot_file, dpi=300)
+        plt.savefig(plot_file)
         plt.close()
 
 
@@ -189,7 +189,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         pivot_table.to_csv(results_file, sep=";")
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/compile-time.png"
+        plot_file = f"{plot_dir}/compile-time.svg"
         print(f"Plotting compile time results to {plot_file}")
 
         # Read data, remove test version and convert compile time to seconds
@@ -261,7 +261,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
-        plt.savefig(plot_file, dpi=300)
+        plt.savefig(plot_file)
         plt.close()
 
 
@@ -304,7 +304,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         pivot_table.to_csv(results_file, sep=";")
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/object-size.png"
+        plot_file = f"{plot_dir}/object-size.svg"
         print(f"Plotting object size results to {plot_file}")
 
         # Read data, remove test version and convert object size to MB
@@ -376,7 +376,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
-        plt.savefig(plot_file, dpi=300)
+        plt.savefig(plot_file)
         plt.close()
 
 
@@ -413,7 +413,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         pivot_table.to_csv(results_file, sep=";")
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/memory-size.png"
+        plot_file = f"{plot_dir}/memory-size.svg"
         print(f"Plotting memory usage results to {plot_file}")
 
         # Read data and remove test version
@@ -484,7 +484,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
-        plt.savefig(plot_file, dpi=300)
+        plt.savefig(plot_file)
         plt.close()
 
 
