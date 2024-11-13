@@ -127,7 +127,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
 
         colors = []
         for percentage in avg_percentage["Percentage"]:
-            colors.append(RED if percentage < 0 else GREEN)
+            colors.append(GREEN if percentage < 0 else RED)
 
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
 
