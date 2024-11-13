@@ -380,12 +380,175 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         plt.close()
 
 
+class MemoryUsageResultsExtractor(ResultsExtractor):
+    def compute_results(self):
+        self.results = []
+        for test in os.listdir(self.results_dir + "/memory-usage"):
+            for profile in os.listdir(self.results_dir + "/memory-usage/" + test):
+                profile_path = os.path.join(
+                    self.results_dir + "/memory-usage", test, profile
+                )
+                maximum = 0
+                with open(profile_path, "r") as f:
+                    for line in f:
+                        if "Maximum resident set size" in line:
+                            maximum = max(maximum, int(line.split(":")[1]))
+
+                self.results += [(test, profile, maximum)]
+
+    def write_results(self, results_file):
+        print(f"Writing memory usage results to {results_file}")
+        with open(results_file, "w") as f:
+            f.write("Test;Profile;Peak Memory Usage\n")
+            for test, profile, maximum in self.results:
+                f.write(f"{test};{profile};{maximum}\n")
+
+    def merge_results(self, results_file):
+        df = pd.read_csv(results_file, sep=";")
+        pivot_table = df.pivot_table(
+            index=["Test"],
+            columns="Profile",
+            values="Peak Memory Usage",
+        )
+        pivot_table.to_csv(results_file, sep=";")
+
+    def plot_results(self, results_file, plot_dir):
+        plot_file = f"{plot_dir}/memory-size.png"
+        print(f"Plotting memory usage results to {plot_file}")
+
+        # Read data and remove test version
+        df = pd.read_csv(results_file, sep=";")
+        df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
+
+        _, ax = plt.subplots(figsize=(8, 6))
+        ax.set_facecolor(BACKGROUND)
+        df = df.pivot_table(index="Test", columns="Profile", values="Peak Memory Usage")
+        df.sort_values(by="Test", ascending=False, inplace=True)
+        df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
+
+        ax.set(ylabel=None)
+        plt.xlabel("Peak Memory Usage (kB)", fontsize=12, color=BLACK)
+
+        # Prevent annotations from going outside the plot
+        max_value = df.max().max()
+        ax.set_xlim(1, max_value * 1.1)
+
+        # Tilt x-axis labels for better readability
+        plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
+
+        ax.grid(
+            True,
+            which="both",
+            axis="x",
+            linestyle="dotted",
+            color="#8B949E",
+            alpha=0.7,
+        )
+
+        # Annotate plots with regression percentage
+        for i, test in enumerate(df.index):
+            base_value = df.loc[test, "base"]
+            byte_value = df.loc[test, "byte"]
+
+            if not np.isnan(base_value):
+                percentage_change = round(
+                    ((byte_value - base_value) / base_value) * 100, 1
+                )
+                if percentage_change == 0.0:
+                    percentage_change *= percentage_change
+                change_text = f"{percentage_change:.1f}%"
+            else:
+                change_text = "nan%"
+
+            x_min, x_max = ax.get_xlim()
+            ax.text(
+                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                i - 0.1,
+                change_text,
+                ha="center",
+                color=(
+                    BRIGHTRED
+                    if percentage_change > 0
+                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
+                ),
+                fontsize=10,
+                fontweight="bold",
+            )
+
+        ax.legend(
+            title="Profile",
+            loc="upper right",
+            fontsize=12,
+            title_fontsize=14,
+            frameon=True,
+        )
+
+        plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
+        plt.savefig(plot_file, dpi=300)
+        plt.close()
+
+
+class TestInfoExtractor(ResultsExtractor):
+    def __init__(self, results_dir, test_profiles_dir):
+        super().__init__(results_dir)
+        self.test_profiles_dir = test_profiles_dir
+
+    def compute_results(self):
+        self.results = []
+
+        for test in os.listdir(self.results_dir + "/object-size"):
+            profile = os.listdir(self.results_dir + "/object-size/" + test)[0]
+            profile_path = os.path.join(
+                self.results_dir + "/object-size", test, profile
+            )
+            loc = 0
+            with open(profile_path, "r") as f:
+                for line in f:
+                    # File output has a tab
+                    if (len(line.split("\t"))) != 3:
+                        continue
+                    size, _, type = line.split("\t")
+                    if "C source" in type or "C++ source" in type:
+                        loc += int(size)
+
+            with open(
+                os.path.join(
+                    args.test_profiles_dir, "pts", test, "test-definition.xml"
+                ),
+                "r",
+            ) as f:
+                tree = ET.parse(f)
+                root = tree.getroot()
+
+                test_name = test.rsplit("-", 1)[0]
+                version = root.find(".//AppVersion").text
+                description = root.find(".//Description").text
+
+            self.results += [(test_name, version, description, loc)]
+
+        self.results.sort(key=lambda x: x[0])
+
+    def write_results(self, results_file):
+        print(f"Writing line of code results to {results_file}")
+        with open(results_file, "w") as f:
+            f.write("Test;Version;Description;LOC\n")
+            for test_name, version, description, loc in self.results:
+                f.write(f"{test_name};{version};{description};{loc}\n")
+
+    def merge_results(self, results_file):
+        raise NotImplementedError
+
+    def plot_results(self, results_file, plot_dir):
+        raise NotImplementedError
+
+
 if __name__ == "__main__":
 
     # User must supply results directory
     # Optionally, results can be merged across profiles
     parser = argparse.ArgumentParser(description="Convert results to CSV")
     parser.add_argument("results_dir", type=str, help="Results directory")
+    parser.add_argument("test_profiles_dir", type=str, help="Test profiles directory")
     parser.add_argument(
         "-c", "--csv", action="store_true", help="Plot results from CSV"
     )
@@ -407,6 +570,8 @@ if __name__ == "__main__":
     RUNTIME_RESULTS_FILE = CSV_PATH + "/runtime-results.csv"
     COMPILE_TIME_RESULTS_FILE = CSV_PATH + "/compile-time-results.csv"
     OBJECT_SIZE_RESULTS_FILE = CSV_PATH + "/object-size-results.csv"
+    MEMORY_USAGE_RESULTS_FILE = CSV_PATH + "/memory-usage-results.csv"
+    TEST_INFO_FILE = CSV_PATH + "/test-info.csv"
 
     # Create the csv directory if it does not exist already
     if not os.path.exists(CSV_PATH):
@@ -415,11 +580,15 @@ if __name__ == "__main__":
     compile_time = CompileTimeResultsExtractor(results_dir)
     runtime = RuntimeResultsExtractor(results_dir)
     object_size = ObjectSizeResultsExtractor(results_dir)
+    memory_usage = MemoryUsageResultsExtractor(results_dir)
+    test_info = TestInfoExtractor(results_dir, args.test_profiles_dir)
 
     if not args.csv:
         compile_time.write_results(COMPILE_TIME_RESULTS_FILE)
         runtime.write_results(RUNTIME_RESULTS_FILE)
         object_size.write_results(OBJECT_SIZE_RESULTS_FILE)
+        memory_usage.write_results(MEMORY_USAGE_RESULTS_FILE)
+        test_info.write_results(TEST_INFO_FILE)
     else:
         for results_file in [
             COMPILE_TIME_RESULTS_FILE,
@@ -438,8 +607,10 @@ if __name__ == "__main__":
         compile_time.plot_results(COMPILE_TIME_RESULTS_FILE, PLOT_PATH)
         runtime.plot_results(RUNTIME_RESULTS_FILE, PLOT_PATH)
         object_size.plot_results(OBJECT_SIZE_RESULTS_FILE, PLOT_PATH)
+        memory_usage.plot_results(MEMORY_USAGE_RESULTS_FILE, PLOT_PATH)
 
     if args.merge:
         compile_time.merge_results(COMPILE_TIME_RESULTS_FILE)
         runtime.merge_results(RUNTIME_RESULTS_FILE)
         object_size.merge_results(OBJECT_SIZE_RESULTS_FILE)
+        memory_usage.merge_results(MEMORY_USAGE_RESULTS_FILE)
