@@ -239,7 +239,10 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
             x_min, x_max = ax.get_xlim()
             ax.text(
-                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                max(
+                    0.05 * (x_max - x_min),
+                    max(base_value, byte_value) + 0.05 * (x_max - x_min),
+                ),
                 i - 0.1,
                 change_text,
                 ha="center",
@@ -352,7 +355,10 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
             x_min, x_max = ax.get_xlim()
             ax.text(
-                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                max(
+                    0.08 * (x_max - x_min),
+                    max(base_value, byte_value) + 0.05 * (x_max - x_min),
+                ),
                 i - 0.1,
                 change_text,
                 ha="center",
@@ -458,7 +464,10 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
 
             x_min, x_max = ax.get_xlim()
             ax.text(
-                max(base_value, byte_value) + 0.04 * (x_max - x_min),
+                max(
+                    0.08 * (x_max - x_min),
+                    max(base_value, byte_value) + 0.05 * (x_max - x_min),
+                ),
                 i - 0.1,
                 change_text,
                 ha="center",
