@@ -132,7 +132,9 @@ class RuntimeResultsExtractor(ResultsExtractor):
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
 
         ax.set(ylabel=None)
-        plt.xlabel("Improvement Relative to Baseline (%)", fontsize=12, color="#24292F")
+        plt.xlabel(
+            "Runtime regression relative to baseline (%)", fontsize=12, color="#24292F"
+        )
 
         # Prevent annotations from going outside the plot
         min_percentage = avg_percentage.min().min()
@@ -204,7 +206,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
 
         ax.set(ylabel=None)
-        plt.xlabel("Time (sec)", fontsize=12, color=BLACK)
+        plt.xlabel("Compile time (sec)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
@@ -319,7 +321,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
 
         ax.set(ylabel=None)
-        plt.xlabel("Size (MB)", fontsize=12, color=BLACK)
+        plt.xlabel("Object size (MB)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
@@ -427,7 +429,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
 
         ax.set(ylabel=None)
-        plt.xlabel("Peak Memory Usage (kB)", fontsize=12, color=BLACK)
+        plt.xlabel("Peak memory usage (kB)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
