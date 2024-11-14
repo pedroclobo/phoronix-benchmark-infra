@@ -411,7 +411,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         pivot_table.to_csv(results_file, sep=";")
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/memory-size.svg"
+        plot_file = f"{plot_dir}/memory-usage.svg"
         print(f"Plotting memory usage results to {plot_file}")
 
         # Read data and remove test version
