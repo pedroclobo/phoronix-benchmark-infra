@@ -367,7 +367,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
         ax.legend(
             title="Profile",
-            loc="upper right",
+            loc="lower right",
             fontsize=12,
             title_fontsize=14,
             frameon=True,
@@ -473,7 +473,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
 
         ax.legend(
             title="Profile",
-            loc="upper right",
+            loc="lower right",
             fontsize=12,
             title_fontsize=14,
             frameon=True,
