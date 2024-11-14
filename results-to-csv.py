@@ -210,7 +210,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
-        ax.set_xlim(1, max_value * 1.1)
+        ax.set_xlim(1, max_value * 1.12)
 
         # Tilt x-axis labels for better readability
         plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
@@ -230,12 +230,10 @@ class CompileTimeResultsExtractor(ResultsExtractor):
             byte_value = df.loc[test, "byte"]
 
             if not np.isnan(base_value):
-                percentage_change = round(
-                    ((byte_value - base_value) / base_value) * 100, 1
-                )
+                percentage_change = ((byte_value - base_value) / base_value) * 100
                 if percentage_change == 0.0:
                     percentage_change *= percentage_change
-                change_text = f"{percentage_change:.1f}%"
+                change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
@@ -325,7 +323,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
-        ax.set_xlim(1, max_value * 1.1)
+        ax.set_xlim(1, max_value * 1.12)
 
         # Tilt x-axis labels for better readability
         plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
@@ -345,12 +343,10 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             byte_value = df.loc[test, "byte"]
 
             if not np.isnan(base_value):
-                percentage_change = round(
-                    ((byte_value - base_value) / base_value) * 100, 1
-                )
+                percentage_change = ((byte_value - base_value) / base_value) * 100
                 if percentage_change == 0.0:
                     percentage_change *= percentage_change
-                change_text = f"{percentage_change:.1f}%"
+                change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
@@ -433,7 +429,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
-        ax.set_xlim(1, max_value * 1.1)
+        ax.set_xlim(1, max_value * 1.12)
 
         # Tilt x-axis labels for better readability
         plt.yticks(rotation=45, ha="right", fontsize=11, color=BLACK)
@@ -453,12 +449,10 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
             byte_value = df.loc[test, "byte"]
 
             if not np.isnan(base_value):
-                percentage_change = round(
-                    ((byte_value - base_value) / base_value) * 100, 1
-                )
+                percentage_change = ((byte_value - base_value) / base_value) * 100
                 if percentage_change == 0.0:
                     percentage_change *= percentage_change
-                change_text = f"{percentage_change:.1f}%"
+                change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
