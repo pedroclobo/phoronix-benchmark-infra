@@ -447,9 +447,10 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/memory-usage.svg"
         print(f"Plotting memory usage results to {plot_file}")
 
-        # Read data and remove test version
+        # Read data, remove test version and convert memory usage to MB
         df = pd.read_csv(results_file, sep=";")
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
+        df["Peak Memory Usage"] = df["Peak Memory Usage"] / 1024
 
         _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor(BACKGROUND)
@@ -468,7 +469,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
                 bar.set_linewidth(1)
 
         ax.set(ylabel=None)
-        plt.xlabel("Peak memory usage (kB)", fontsize=12, color=BLACK)
+        plt.xlabel("Peak memory usage (MB)", fontsize=12, color=BLACK)
 
         # Prevent annotations from going outside the plot
         max_value = df.max().max()
