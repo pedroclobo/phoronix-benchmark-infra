@@ -272,11 +272,11 @@ class CompileTimeResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            title="Profile",
             loc="lower right",
             fontsize=12,
-            title_fontsize=14,
             frameon=True,
+            reverse=True,
+            framealpha=1,
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
@@ -399,11 +399,11 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            title="Profile",
             loc="lower right",
             fontsize=12,
-            title_fontsize=14,
             frameon=True,
+            reverse=True,
+            framealpha=1,
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
@@ -519,11 +519,11 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            title="Profile",
             loc="lower right",
             fontsize=12,
-            title_fontsize=14,
             frameon=True,
+            reverse=True,
+            framealpha=1,
         )
 
         plt.subplots_adjust(bottom=0.1, top=0.99, left=0.15, right=0.98)
