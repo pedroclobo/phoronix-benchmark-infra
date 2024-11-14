@@ -125,16 +125,38 @@ class RuntimeResultsExtractor(ResultsExtractor):
         avg_percentage.sort_values(by="Test", inplace=True, ascending=False)
         avg_percentage["Percentage"] = avg_percentage["Percentage"].astype(float)
 
-        colors = []
-        for percentage in avg_percentage["Percentage"]:
-            colors.append(GREEN if percentage < 0 else RED)
+        # Set colors based on regression percentage
+        colors = [
+            GREEN if percentage < 0 else RED
+            for percentage in avg_percentage["Percentage"]
+        ]
 
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
-
         for container in ax.containers:
-            for bar in container.patches:
+            for i, bar in enumerate(container.patches):
+                percentage = avg_percentage.iloc[i]["Percentage"]
+                change_text = f"{percentage:.2f}%"
+                rounded_percentage = round(percentage, 2)
+                x_min, x_max = ax.get_xlim()
                 bar.set_edgecolor("black")
                 bar.set_linewidth(1)
+                ax.text(
+                    (
+                        percentage + 0.06 * (x_max - x_min)
+                        if percentage > 0
+                        else percentage - 0.06 * (x_max - x_min)
+                    ),
+                    i - 0.1,
+                    change_text,
+                    ha="center",
+                    color=(
+                        BRIGHTRED
+                        if rounded_percentage > 0
+                        else BRIGHTGREEN if rounded_percentage < 0 else BRIGHTYELLOW
+                    ),
+                    fontsize=10,
+                    fontweight="bold",
+                )
 
         ax.set(ylabel=None)
         plt.xlabel(
@@ -144,8 +166,8 @@ class RuntimeResultsExtractor(ResultsExtractor):
         # Prevent annotations from going outside the plot
         min_percentage = avg_percentage.min().min()
         max_percentage = avg_percentage.max().max()
-        ax.set_xlim(min_percentage * 1.05, max(max_percentage * 1.05, 0.5))
 
+        ax.set_xlim(min_percentage * 1.28, max_percentage * 1.28)
         ax.grid(
             True,
             which="both",
