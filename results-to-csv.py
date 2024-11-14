@@ -231,13 +231,14 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
             if not np.isnan(base_value):
                 percentage_change = ((byte_value - base_value) / base_value) * 100
-                if percentage_change == 0.0:
+                if round(percentage_change, 2) == 0.00:
                     percentage_change *= percentage_change
                 change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
             x_min, x_max = ax.get_xlim()
+            rounded_percentage_change = round(percentage_change, 2)
             ax.text(
                 max(
                     0.05 * (x_max - x_min),
@@ -248,8 +249,8 @@ class CompileTimeResultsExtractor(ResultsExtractor):
                 ha="center",
                 color=(
                     BRIGHTRED
-                    if percentage_change > 0
-                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
+                    if rounded_percentage_change > 0
+                    else BRIGHTGREEN if rounded_percentage_change < 0 else BRIGHTYELLOW
                 ),
                 fontsize=10,
                 fontweight="bold",
@@ -347,12 +348,13 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
             if not np.isnan(base_value):
                 percentage_change = ((byte_value - base_value) / base_value) * 100
-                if percentage_change == 0.0:
+                if round(percentage_change, 2) == 0.00:
                     percentage_change *= percentage_change
                 change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
+            rounded_percentage_change = round(percentage_change, 2)
             x_min, x_max = ax.get_xlim()
             ax.text(
                 max(
@@ -364,8 +366,8 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
                 ha="center",
                 color=(
                     BRIGHTRED
-                    if percentage_change > 0
-                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
+                    if rounded_percentage_change > 0
+                    else BRIGHTGREEN if rounded_percentage_change < 0 else BRIGHTYELLOW
                 ),
                 fontsize=10,
                 fontweight="bold",
@@ -456,12 +458,13 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
 
             if not np.isnan(base_value):
                 percentage_change = ((byte_value - base_value) / base_value) * 100
-                if percentage_change == 0.0:
-                    percentage_change *= percentage_change
+                if round(percentage_change, 2) == 0.00:
+                    percentage_change = abs(percentage_change)
                 change_text = f"{percentage_change:.2f}%"
             else:
                 change_text = "nan%"
 
+            rounded_percentage_change = round(percentage_change, 2)
             x_min, x_max = ax.get_xlim()
             ax.text(
                 max(
@@ -473,8 +476,8 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
                 ha="center",
                 color=(
                     BRIGHTRED
-                    if percentage_change > 0
-                    else BRIGHTGREEN if percentage_change < 0 else BRIGHTYELLOW
+                    if rounded_percentage_change > 0
+                    else BRIGHTGREEN if rounded_percentage_change < 0 else BRIGHTYELLOW
                 ),
                 fontsize=10,
                 fontweight="bold",
