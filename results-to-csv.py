@@ -131,6 +131,11 @@ class RuntimeResultsExtractor(ResultsExtractor):
 
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
 
+        for container in ax.containers:
+            for bar in container.patches:
+                bar.set_edgecolor("black")
+                bar.set_linewidth(1)
+
         ax.set(ylabel=None)
         plt.xlabel(
             "Runtime regression relative to baseline (%)", fontsize=12, color="#24292F"
@@ -202,8 +207,18 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
+        df = df[["byte", "base"]]
         df.sort_values(by="Test", ascending=False, inplace=True)
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
+
+        for container in ax.containers:
+            for bar in container.patches:
+                if container == ax.containers[0]:
+                    bar.set_hatch("/" * 4)
+                else:
+                    bar.set_hatch("." * 4)
+                bar.set_edgecolor("black")
+                bar.set_linewidth(1)
 
         ax.set(ylabel=None)
         plt.xlabel("Compile time (sec)", fontsize=12, color=BLACK)
@@ -319,8 +334,18 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Size")
+        df = df[["byte", "base"]]
         df.sort_values(by="Test", ascending=False, inplace=True)
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
+
+        for container in ax.containers:
+            for bar in container.patches:
+                if container == ax.containers[0]:
+                    bar.set_hatch("/" * 4)
+                else:
+                    bar.set_hatch("." * 4)
+                bar.set_edgecolor("black")
+                bar.set_linewidth(1)
 
         ax.set(ylabel=None)
         plt.xlabel("Object size (MB)", fontsize=12, color=BLACK)
@@ -429,8 +454,18 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         _, ax = plt.subplots(figsize=(8, 6))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Peak Memory Usage")
+        df = df[["byte", "base"]]
         df.sort_values(by="Test", ascending=False, inplace=True)
         df.plot(kind="barh", ax=ax, color=[BLUE, RED], width=0.7)
+
+        for container in ax.containers:
+            for bar in container.patches:
+                if container == ax.containers[0]:
+                    bar.set_hatch("/" * 4)
+                else:
+                    bar.set_hatch("." * 4)
+                bar.set_edgecolor("black")
+                bar.set_linewidth(1)
 
         ax.set(ylabel=None)
         plt.xlabel("Peak memory usage (kB)", fontsize=12, color=BLACK)
