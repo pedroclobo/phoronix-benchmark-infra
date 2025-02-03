@@ -1,13 +1,49 @@
 #!/bin/bash -ex
 
-# User must provide a config file
-[ $# -ne 1 ] && echo "Usage: $0 <config>" && exit 1
+# Function to display usage
+usage() {
+    echo "Usage: $0 [options] <config_file>"
+    echo "Options:"
+    echo "  -p, --prepare   Tweak environement to decrease result variance (needs sudo)"
+    echo "  -h, --help      Display this message"
+    exit 1
+}
+
+# Default behavior
+run_prepare=0
+
+# Parse command line arguments
+TEMP=$(getopt -o ph --long prepare,help -n "$0" -- "$@")
+if [ $? != 0 ] ; then echo "Termination..." >&2 ; exit 1 ; fi
+eval set -- "$TEMP"
+
+while true; do
+    case "$1" in
+        -p | --prepare)
+            run_prepare=1
+            shift
+        ;;
+        -h | --help)
+            usage
+        ;;
+        -- )
+            shift
+            break
+        ;;
+        * )
+            break
+        ;;
+    esac
+done
+
+# Ensure config file is provided
+[ $# -ne 1 ] && usage
+config_file="$1"
 
 # Config file must exist
-[ ! -f "$1" ] && echo "Configuration files does not exist!" && exit 1
+[ ! -f "$config_file" ] && echo "Configuration file does not exist!" && exit 1
 
 # Parse the config file
-config_file="$1"
 export CONFIG_NAME=$(jq -r '.CONFIG_NAME' "$config_file")
 export PTS_BASE=$(jq -r '.PTS_BASE' "$config_file")
 export TEST_PROFILES_PATH=$(jq -r '.TEST_PROFILES_PATH' "$config_file")
@@ -44,7 +80,8 @@ rm -rf $RESULTS_PATH/memory-usage/*
 [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
 [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
 
-./prepare-benchmark-env.sh 1
+# Prepare environement to decrease result variance (needs sudo)
+[[ $run_prepare -eq 1 ]] && ./prepare-benchmark-env.sh 1
 
 # Point to the toolchain wrappers
 export CC=$TOOLCHAIN_PATH/clang
