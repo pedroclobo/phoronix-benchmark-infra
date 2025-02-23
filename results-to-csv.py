@@ -92,11 +92,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/runtime.svg"
         print(f"Plotting runtime results to {plot_file}")
 
-        # Read data and remove test version
         df = pd.read_csv(results_file, sep=";")
-        df["Test"] = df["Test"].apply(
-            lambda x: "-".join(x.split("/", 1)[1].split("-")[:-1])
-        )
 
         num_tests = len(df["Test"].unique())
         height = max(6, 0.5 * num_tests)
@@ -225,9 +221,8 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/compile-time.svg"
         print(f"Plotting compile time results to {plot_file}")
 
-        # Read data, remove test version and convert compile time to seconds
+        # Read data and convert compile time to seconds
         df = pd.read_csv(results_file, sep=";")
-        df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Compile Time"] = df["Compile Time"] / 1000
 
         num_tests = len(df["Test"].unique())
@@ -354,9 +349,8 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/object-size.svg"
         print(f"Plotting object size results to {plot_file}")
 
-        # Read data, remove test version and convert object size to MB
+        # Read data and convert object size to MB
         df = pd.read_csv(results_file, sep=";")
-        df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Size"] = df["Size"] / (1024 * 1024)
 
         num_tests = len(df["Test"].unique())
@@ -477,9 +471,8 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/memory-usage.svg"
         print(f"Plotting memory usage results to {plot_file}")
 
-        # Read data, remove test version and convert memory usage to MB
+        # Read data and convert memory usage to MB
         df = pd.read_csv(results_file, sep=";")
-        df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Peak Memory Usage"] = df["Peak Memory Usage"] / 1024
 
         num_tests = len(df["Test"].unique())
@@ -587,10 +580,9 @@ class TestInfoExtractor(ResultsExtractor):
                     if "C source" in type or "C++ source" in type:
                         loc += int(size)
 
-            test_name = test.rsplit("-", 1)[0]
             with open(
                 os.path.join(
-                    args.test_profiles_dir, "local", test_name, "test-definition.xml"
+                    args.test_profiles_dir, "local", test, "test-definition.xml"
                 ),
                 "r",
             ) as f:
@@ -600,7 +592,7 @@ class TestInfoExtractor(ResultsExtractor):
                 version = root.find(".//AppVersion").text
                 description = root.find(".//Description").text
 
-            self.results += [(test_name, version, description, loc)]
+            self.results += [(test, version, description, loc)]
 
         self.results.sort(key=lambda x: x[0])
 
