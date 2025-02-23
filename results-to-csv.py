@@ -589,16 +589,16 @@ class TestInfoExtractor(ResultsExtractor):
                     if "C source" in type or "C++ source" in type:
                         loc += int(size)
 
+            test_name = test.rsplit("-", 1)[0]
             with open(
                 os.path.join(
-                    args.test_profiles_dir, "pts", test, "test-definition.xml"
+                    args.test_profiles_dir, "local", test_name, "test-definition.xml"
                 ),
                 "r",
             ) as f:
                 tree = ET.parse(f)
                 root = tree.getroot()
 
-                test_name = test.rsplit("-", 1)[0]
                 version = root.find(".//AppVersion").text
                 description = root.find(".//Description").text
 
