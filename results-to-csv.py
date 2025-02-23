@@ -98,7 +98,9 @@ class RuntimeResultsExtractor(ResultsExtractor):
             lambda x: "-".join(x.split("/", 1)[1].split("-")[:-1])
         )
 
-        _, ax = plt.subplots(figsize=(8, 6))
+        num_tests = len(df["Test"].unique())
+        height = max(6, 0.5 * num_tests)
+        _, ax = plt.subplots(figsize=(8, height))
         ax.set_facecolor(BACKGROUND)
 
         # Pivot the data and sort by Test
@@ -227,7 +229,9 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Compile Time"] = df["Compile Time"] / 1000
 
-        _, ax = plt.subplots(figsize=(8, 6))
+        num_tests = len(df["Test"].unique())
+        height = max(6, 0.5 * num_tests)
+        _, ax = plt.subplots(figsize=(8, height))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Compile Time")
         df = df[["byte", "base"]]
@@ -355,7 +359,9 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Size"] = df["Size"] / (1024 * 1024)
 
-        _, ax = plt.subplots(figsize=(8, 6))
+        num_tests = len(df["Test"].unique())
+        height = max(6, 0.5 * num_tests)
+        _, ax = plt.subplots(figsize=(8, height))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Size")
         df = df[["byte", "base"]]
@@ -477,7 +483,9 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         df["Test"] = df["Test"].apply(lambda x: "-".join(x.split("-")[:-1]))
         df["Peak Memory Usage"] = df["Peak Memory Usage"] / 1024
 
-        _, ax = plt.subplots(figsize=(8, 6))
+        num_tests = len(df["Test"].unique())
+        height = max(6, 0.5 * num_tests)
+        _, ax = plt.subplots(figsize=(8, height))
         ax.set_facecolor(BACKGROUND)
         df = df.pivot_table(index="Test", columns="Profile", values="Peak Memory Usage")
         df = df[["byte", "base"]]
