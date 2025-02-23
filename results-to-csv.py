@@ -134,6 +134,12 @@ class RuntimeResultsExtractor(ResultsExtractor):
             for percentage in avg_percentage["Percentage"]
         ]
 
+        # Prevent annotations from going outside the plot
+        min_percentage = avg_percentage.min().min()
+        max_percentage = avg_percentage.max().max()
+
+        ax.set_xlim(min(-2, min_percentage * 1.28), max(2, max_percentage * 1.28))
+
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
         for container in ax.containers:
             for i, bar in enumerate(container.patches):
@@ -145,9 +151,9 @@ class RuntimeResultsExtractor(ResultsExtractor):
                 bar.set_linewidth(1)
                 ax.text(
                     (
-                        percentage + 0.06 * (x_max - x_min)
+                        percentage + 0.05 * (x_max - x_min)
                         if percentage > 0
-                        else percentage - 0.06 * (x_max - x_min)
+                        else percentage - 0.05 * (x_max - x_min)
                     ),
                     i - 0.1,
                     change_text,
@@ -166,11 +172,6 @@ class RuntimeResultsExtractor(ResultsExtractor):
             "Runtime regression relative to baseline (%)", fontsize=12, color="#24292F"
         )
 
-        # Prevent annotations from going outside the plot
-        min_percentage = avg_percentage.min().min()
-        max_percentage = avg_percentage.max().max()
-
-        ax.set_xlim(min_percentage * 1.28, max_percentage * 1.28)
         ax.grid(
             True,
             which="both",
