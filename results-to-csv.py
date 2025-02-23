@@ -304,7 +304,6 @@ class CompileTimeResultsExtractor(ResultsExtractor):
             loc="lower right",
             fontsize=12,
             frameon=True,
-            reverse=True,
             framealpha=1,
         )
 
@@ -434,7 +433,6 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             loc="lower right",
             fontsize=12,
             frameon=True,
-            reverse=True,
             framealpha=1,
         )
 
@@ -558,7 +556,6 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
             loc="lower right",
             fontsize=12,
             frameon=True,
-            reverse=True,
             framealpha=1,
         )
 
