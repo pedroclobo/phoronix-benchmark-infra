@@ -27,6 +27,7 @@ Each configuration file is a JSON file that specifies paths and settings for the
 - `RESULTS_PATH`: Path to install the programs and store the results of the benchmarks.
 - `PROFILES_FILE`: Path to the profiles file containing the tests to run.
 - `NUM_CPU_CORES`: Number of CPU cores to use (both during compilation and benchmarking).
+- `PIN_CMD`: Command wrapper around the benchmarking script (can be used to pin the process to a specific CPU).
 
 ```json
 {
@@ -38,7 +39,8 @@ Each configuration file is a JSON file that specifies paths and settings for the
   "TOOLCHAIN_PATH": "/home/user/phoronix-benchmark-infra/toolchain",
   "RESULTS_PATH": "/home/user/.phoronix-test-suite",
   "PROFILES_FILE": "/home/user/phoronix-benchmark-infra/profiles.txt",
-  "NUM_CPU_CORES": 16
+  "NUM_CPU_CORES": 16,
+  "PIN_CMD": "sudo nice -n -20 taskset -c 1"
 }
 ```
 

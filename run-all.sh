@@ -77,6 +77,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         export FLAGS=$(jq -r '.FLAGS' "$c")
         export RESULTS_PATH=$(jq -r '.RESULTS_PATH' "$c")
         export NUM_CPU_CORES=$(jq -r '.NUM_CPU_CORES' "$c")
+        export PIN_CMD=$(jq -r '.PIN_CMD' "$c")
 
         # Verify the paths
         [ ! -d $PTS_BASE ] && echo "PTS not found!" && exit 1
