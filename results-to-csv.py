@@ -4,6 +4,7 @@ import numpy as np
 import os
 import xml.etree.ElementTree as ET
 import argparse
+import re
 from matplotlib.ticker import AutoMinorLocator
 
 BACKGROUND = "#F6F8FA"
@@ -446,8 +447,8 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
                 maximum = 0
                 with open(profile_path, "r") as f:
                     for line in f:
-                        if "Maximum resident set size" in line:
-                            maximum = max(maximum, int(line.split(":")[1]))
+                        if re.match(r"^\d+$", line.strip()):
+                            maximum = max(maximum, int(line.strip()))
 
                 self.results += [(test, profile, maximum)]
 

@@ -1,23 +1,46 @@
 #!/bin/bash
 
-blacklist=":-mno-avx256-split-unaligned-load:-mno-avx256-split-unaligned-store:-menable-experimental-extensions:-matomics:-march=rv64gcv1p0:-wd654:-V:-Werror:-Wall:-Wextra:-pedantic:-fprofile-correction:-fprofile-use:"
-
-# Remove blacklisted flags from the provided arguments
-new_args=""
+# Remove blacklisted compiler flags
+blacklist="\
+  :-V \
+  :-Wall \
+  :-Werror \
+  :-Wextra \
+  :-fprofile-correction \
+  :-fprofile-use \
+  :-march=rv64gcv1p0 \
+  :-matomics \
+  :-menable-experimental-extensions \
+  :-mno-avx256-split-unaligned-load \
+  :-mno-avx256-split-unaligned-store \
+  :-pedantic \
+  :-wd654 \
+  "
+args=""
 for arg in "$@"; do
   if ! echo "$blacklist" | grep -q ":$arg:"; then
-    new_args="$new_args $arg"
+    args="$args $arg"
   fi
 done
 
-[ ! -d $RESULTS_PATH/memory-usage/${basename} ] && mkdir -p $RESULTS_PATH/memory-usage/${basename}
+# Replace optimization levels with -O2
+args=$(echo "$args" | sed -E 's/\b-O[0-3sz]\b/-O2/g')
 
 start_time=$(date +%s%3N)
 
-/usr/bin/time -v ${LLVM_PATH}/clang $new_args ${FLAGS} >> $RESULTS_PATH/memory-usage/${basename}/${CONFIG_NAME} 2>&1
+# Measure peak memory usage
+MEM_DIR=$RESULTS_PATH/memory-usage/${basename}
+MEM_FILE=$MEM_DIR/${CONFIG_NAME}
+[ ! -d $MEM_DIR ] && mkdir -p $MEM_DIR
+/usr/bin/time -pf '%M' -o $MEM_FILE -a ${LLVM_PATH}/clang $args ${FLAGS}
+exit_code=$?
 
+# Measure elapsed time (compile time)
 end_time=$(date +%s%3N)
 elapsed_time=$((end_time - start_time))
+TIME_DIR=$RESULTS_PATH/compile-time/${basename}
+TIME_FILE=$TIME_DIR/${CONFIG_NAME}
+[ ! -d $TIME_DIR ] && mkdir -p $TIME_DIR
+echo "$elapsed_time" >> $TIME_FILE
 
-[ ! -d $RESULTS_PATH/compile-time/${basename} ] && mkdir -p $RESULTS_PATH/compile-time/${basename}
-echo "$elapsed_time" >> $RESULTS_PATH/compile-time/${basename}/${CONFIG_NAME} || true
+exit $exit_code
