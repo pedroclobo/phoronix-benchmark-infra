@@ -50,10 +50,14 @@ class RuntimeResultsExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/test-results"):
             for profile in os.listdir(self.results_dir + "/test-results/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/test-results", test, profile, "composite.xml"
-                )
-                tree = ET.parse(profile_path)
+                for flag in os.listdir(
+                    self.results_dir + "/test-results/" + test + "/" + profile
+                ):
+                    flag_path = os.path.join(
+                        self.results_dir + "/test-results", test, profile, flag, "composite.xml"
+                    )
+
+                tree = ET.parse(flag_path)
                 root = tree.getroot()
 
                 for result in root.findall(".//Result"):
@@ -193,11 +197,14 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/compile-time"):
             for profile in os.listdir(self.results_dir + "/compile-time/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/compile-time", test, profile
-                )
-                with open(profile_path, "r") as f:
-                    self.results += [(test, profile, sum([int(line) for line in f]))]
+                for flag in os.listdir(
+                    self.results_dir + "/compile-time/" + test + "/" + profile
+                ):
+                    flag_path = os.path.join(
+                        self.results_dir + "/compile-time", test, profile, flag
+                    )
+                    with open(flag_path, "r") as f:
+                        self.results += [(test, profile, sum([int(line) for line in f]))]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
 
@@ -313,19 +320,22 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/object-size"):
             for profile in os.listdir(self.results_dir + "/object-size/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/object-size", test, profile
-                )
-                with open(profile_path, "r") as f:
-                    sum = 0
-                    for line in f:
-                        # File output has a tab
-                        if (len(line.split("\t"))) != 3:
-                            continue
-                        size, _, type = line.split("\t")
-                        if "ELF" in type:
-                            sum += int(size)
-                    self.results += [(test, profile, sum)]
+                for flag in os.listdir(
+                    self.results_dir + "/object-size/" + test + "/" + profile
+                ):
+                    flag_path = os.path.join(
+                        self.results_dir + "/object-size", test, profile, flag
+                    )
+                    with open(flag_path, "r") as f:
+                        sum = 0
+                        for line in f:
+                            # File output has a tab
+                            if (len(line.split("\t"))) != 3:
+                                continue
+                            size, _, type = line.split("\t")
+                            if "ELF" in type:
+                                sum += int(size)
+                        self.results += [(test, profile, sum)]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
 
@@ -440,16 +450,19 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         self.results = []
         for test in os.listdir(self.results_dir + "/memory-usage"):
             for profile in os.listdir(self.results_dir + "/memory-usage/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/memory-usage", test, profile
-                )
-                maximum = 0
-                with open(profile_path, "r") as f:
-                    for line in f:
-                        if re.match(r"^\d+$", line.strip()):
-                            maximum = max(maximum, int(line.strip()))
+                for flag in os.listdir(
+                    self.results_dir + "/memory-usage/" + test + "/" + profile
+                ):
+                    flag_path = os.path.join(
+                        self.results_dir + "/memory-usage", test, profile, flag
+                    )
+                    maximum = 0
+                    with open(flag_path, "r") as f:
+                        for line in f:
+                            if re.match(r"^\d+$", line.strip()):
+                                maximum = max(maximum, int(line.strip()))
 
-                self.results += [(test, profile, maximum)]
+                    self.results += [(test, profile, maximum)]
 
     def write_results(self, results_file):
         print(f"Writing memory usage results to {results_file}")
@@ -567,9 +580,11 @@ class TestInfoExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/object-size"):
             profile = os.listdir(self.results_dir + "/object-size/" + test)[0]
+            print(profile)
             profile_path = os.path.join(
-                self.results_dir + "/object-size", test, profile
+                self.results_dir + "/object-size", test, profile,
             )
+            print(profile_path)
             loc = 0
             with open(profile_path, "r") as f:
                 for line in f:
@@ -649,14 +664,14 @@ if __name__ == "__main__":
     runtime = RuntimeResultsExtractor(results_dir)
     object_size = ObjectSizeResultsExtractor(results_dir)
     memory_usage = MemoryUsageResultsExtractor(results_dir)
-    test_info = TestInfoExtractor(results_dir, args.test_profiles_dir)
+    # test_info = TestInfoExtractor(results_dir, args.test_profiles_dir)
 
     if not args.csv:
         compile_time.write_results(COMPILE_TIME_RESULTS_FILE)
         runtime.write_results(RUNTIME_RESULTS_FILE)
         object_size.write_results(OBJECT_SIZE_RESULTS_FILE)
         memory_usage.write_results(MEMORY_USAGE_RESULTS_FILE)
-        test_info.write_results(TEST_INFO_FILE)
+        # test_info.write_results(TEST_INFO_FILE)
     else:
         for results_file in [
             COMPILE_TIME_RESULTS_FILE,
