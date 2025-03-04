@@ -75,8 +75,11 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         export TOOLCHAIN_PATH=$(jq -r '.TOOLCHAIN_PATH' "$c")
         export LLVM_PATH=$(jq -r '.LLVM_PATH' "$c")
         export FLAGS=$(jq -r '.FLAGS' "$c")
+        export OPT_FLAGS=$(jq -r '.OPT_FLAGS[]' "$c")
         export RESULTS_PATH=$(jq -r '.RESULTS_PATH' "$c")
         export NUM_CPU_CORES=$(jq -r '.NUM_CPU_CORES' "$c")
+        # Backup the original number of CPU cores
+        OLD_NUM_CPU_CORES=$NUM_CPU_CORES
         export PIN_CMD=$(jq -r '.PIN_CMD' "$c")
 
         # Verify the paths
@@ -123,56 +126,70 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         )
         echo $batch_setup | $PTS batch-setup
 
+        # Export basename variable, used to measure compile time in toolchain/
+        export basename=$(basename $p)
+
         # Point to the toolchain wrappers
         export CC=$TOOLCHAIN_PATH/clang
         export CXX=$TOOLCHAIN_PATH/clang++
 
-        # Set compiler flags
-        export CFLAGS=$FLAGS
-        export CXXFLAGS=$FLAGS
+        # Loop over opt flags
+        for opt_flag in $OPT_FLAGS; do
+            # Set compiler flags
+            export CFLAGS=$FLAGS" "$opt_flag
+            export CXXFLAGS=$FLAGS" "$opt_flag
 
-        # Export basename variable, used to measure compile time in toolchain/
-        export basename=$(basename $p)
+            # Set original number of CPU cores
+            export NUM_CPU_CORES=$OLD_NUM_CPU_CORES
 
-        # Install and measure compile time and memory usage
-        $PTS batch-install $p
+            # Export current optimization flag
+            export OPT_FLAG=$opt_flag
 
-        # Measure object size
-        SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)
-        [ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
-        du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
-            echo -e "$size\t$file\t$(file -b "$file")"
-        done > $SIZE_DIR/$CONFIG_NAME
+            # Install and measure compile time and memory usage
+            $PTS batch-install $p
 
-        # Run the test
-        result_name=`echo $p | cut -d'/' -f2`"_"
-        echo -n $result_name | $PTS batch-run $p
+            # Measure object size
+            SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
+            [ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
+            du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
+                echo -e "$size\t$file\t$(file -b "$file")"
+            done > $SIZE_DIR/$(echo $opt_flag | tr -d '-')
 
-        # Copy results
-        pushd $RESULTS_PATH
-        cp -r compile-time $RESULTS_REPO
-        cp -r object-size $RESULTS_REPO
-        cp -r memory-usage $RESULTS_REPO
-        for dir in test-results/*; do
-            mkdir -p $dir/$CONFIG_NAME
-            mv $dir/* $dir/$CONFIG_NAME
+            # Run tests with a single CPU core
+            OLD_NUM_CPU_CORES=$NUM_CPU_CORES
+            export NUM_CPU_CORES=1
+
+            # Run the test
+            result_name=`echo $p | cut -d'/' -f2`"_"
+            echo -n $result_name | $PTS batch-run $p
+
+            # Copy results
+            pushd $RESULTS_PATH
+            cp -r compile-time $RESULTS_REPO
+            cp -r object-size $RESULTS_REPO
+            cp -r memory-usage $RESULTS_REPO
+            for dir in test-results/*; do
+                mkdir -p $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d '-')
+                mv $dir/* $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d -)
+            done
+            cp -r test-results $RESULTS_REPO
+
+            rm -rf compile-time installed-tests object-size memory-usage test-results
+            popd
+
+            pushd $RESULTS_REPO
+            git add .
+            git commit --no-gpg-sign -m "$CONFIG_NAME($(echo $opt_flag | tr -d '-')): $p"
+            git push -f
+            popd
         done
-        cp -r test-results $RESULTS_REPO
-
-        rm -rf compile-time installed-tests object-size memory-usage test-results
-        popd
-
-        pushd $RESULTS_REPO
-        git add .
-        git commit --no-gpg-sign -m "$CONFIG_NAME: $p"
-        git push -f
-        popd
     done
 
     pushd $RESULTS_REPO
     find . -name "s,^.*" | xargs rm -rf
     popd
-    python3 results-to-csv.py $RESULTS_REPO $TEST_PROFILES_PATH -mp
+    # TODO: HARDCODED -O2
+    python3 results-to-csv.py $RESULTS_REPO $TEST_PROFILES_PATH "O2" -mp
 
     # Write README.md
     echo "# $FORMATTED_DATE @ $(hostname)" > $RESULTS_REPO/README.md

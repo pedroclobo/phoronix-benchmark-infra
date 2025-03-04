@@ -20,7 +20,8 @@ Each configuration file is a JSON file that specifies paths and settings for the
 
 - `CONFIG_NAME`: Name of the configuration.
 - `LLVM_PATH`: Path to the LLVM `bin` directory.
-- `FLAGS`: Clang flags.
+- `FLAGS`: Clang flags (excluding optimization level).
+- `OPT_FLAGS`: List of optimization flags to test.
 - `PTS_BASE`: Path to the Phoronix Test Suite repository (cloned in the setup step).
 - `TEST_PROFILES_PATH`: Path to the test profiles repository (cloned in the setup step).
 - `TOOLCHAIN_PATH`: Path to the toolchain scripts (located in the `toolchain/` directory).
@@ -33,7 +34,8 @@ Each configuration file is a JSON file that specifies paths and settings for the
 {
   "CONFIG_NAME": "baseline",
   "LLVM_PATH": "/home/user/llvm/build/bin",
-  "FLAGS": "-O2",
+  "FLAGS": "-march=native",
+  "OPT_FLAGS": [ "-O1", "-O2", "-O3" ],
   "PTS_BASE": "/home/user/phoronix-test-suite",
   "TEST_PROFILES_PATH": "/home/user/test-profiles",
   "TOOLCHAIN_PATH": "/home/user/phoronix-benchmark-infra/toolchain",
@@ -81,7 +83,7 @@ To run the tests specified in `profiles.txt` for a single configuration, use the
 
 ```sh
 # -p will prepare the environment to decrease result variance (requires sudo)
-./run.sh -p config/base.json
+./run.sh -p config/base.json "O2"
 ```
 
 ### All Configurations
@@ -100,7 +102,7 @@ To run all configurations in a directory, generating the plots and uploading the
 Use the `results-to-csv.py` script to convert results to CSV format and generate plots:
 
 ```sh
-python3 results-to-csv.py /path/to/results /path/to/test-profiles -mp
+python3 results-to-csv.py /path/to/results /path/to/test-profiles "O2" -mp
 ```
 
 ## Gathering Test Information
@@ -115,6 +117,3 @@ python3 get-test-info.py /path/to/test-profiles profiles.txt --output-format mar
 
 Custom toolchains are located in the `toolchain/` directory.
 The `clang` and `clang++` scripts wrap the LLVM compilers to remove blacklisted flags and measure compile time and memory usage.
-
-**The script override the default optimization level as most makefiles override these flags.
-Make sure to update the script if needing to benchmark with an optimzation level different from `-O2`.**

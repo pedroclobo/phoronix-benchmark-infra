@@ -2,7 +2,7 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [options] <config_file>"
+    echo "Usage: $0 [options] <config_file> <opt-flag>"
     echo "Options:"
     echo "  -p, --prepare   Tweak environement to decrease result variance (needs sudo)"
     echo "  -h, --help      Display this message"
@@ -37,8 +37,10 @@ while true; do
 done
 
 # Ensure config file is provided
-[ $# -ne 1 ] && usage
+[ $# -ne 2 ] && usage
 config_file="$1"
+opt_flag=$(echo $2 | tr -d '-')
+export OPT_FLAG="-$opt_flag"
 
 # Config file must exist
 [ ! -f "$config_file" ] && echo "Configuration file does not exist!" && exit 1
@@ -119,11 +121,11 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 	$PTS batch-install $p
 
 	# Measure object size
-	SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)
+	SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
 	[ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
 	du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
 		echo -e "$size\t$file\t$(file -b "$file")"
-	done > $SIZE_DIR/$CONFIG_NAME
+	done > $SIZE_DIR/$opt_flag
 
 	# Run the test
 	result_name=`echo $p | cut -d'/' -f2`"_"

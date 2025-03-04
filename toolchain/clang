@@ -23,14 +23,16 @@ for arg in "$@"; do
   fi
 done
 
-# Replace optimization levels with -O2
-args=$(echo "$args" | sed -E 's/\b-O[0-3sz]\b/-O2/g')
+# Replace optimization levels with $OPT_FLAG
+args=$(echo "$args" | sed -E 's/\b-O[0-3sz]\b/$OPT_FLAG/g')
 
 start_time=$(date +%s%3N)
 
 # Measure peak memory usage
-MEM_DIR=$RESULTS_PATH/memory-usage/${basename}
-MEM_FILE=$MEM_DIR/${CONFIG_NAME}
+MEM_DIR=$RESULTS_PATH/memory-usage/${basename}/${CONFIG_NAME}
+echo $MEM_DIR > /tmp/log
+MEM_FILE=$MEM_DIR/$(echo $OPT_FLAG | tr -d -)
+echo $MEM_FILE >> /tmp/log
 [ ! -d $MEM_DIR ] && mkdir -p $MEM_DIR
 /usr/bin/time -pf '%M' -o $MEM_FILE -a ${LLVM_PATH}/clang $args ${FLAGS}
 exit_code=$?
@@ -38,8 +40,8 @@ exit_code=$?
 # Measure elapsed time (compile time)
 end_time=$(date +%s%3N)
 elapsed_time=$((end_time - start_time))
-TIME_DIR=$RESULTS_PATH/compile-time/${basename}
-TIME_FILE=$TIME_DIR/${CONFIG_NAME}
+TIME_DIR=$RESULTS_PATH/compile-time/${basename}/${CONFIG_NAME}
+TIME_FILE=$TIME_DIR/$(echo $OPT_FLAG | tr -d -)
 [ ! -d $TIME_DIR ] && mkdir -p $TIME_DIR
 echo "$elapsed_time" >> $TIME_FILE
 

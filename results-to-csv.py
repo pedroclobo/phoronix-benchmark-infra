@@ -51,7 +51,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/test-results"):
             for profile in os.listdir(self.results_dir + "/test-results/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/test-results", test, profile, "composite.xml"
+                    self.results_dir + "/test-results", test, profile, FLAG, "composite.xml"
                 )
                 tree = ET.parse(profile_path)
                 root = tree.getroot()
@@ -194,7 +194,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/compile-time"):
             for profile in os.listdir(self.results_dir + "/compile-time/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/compile-time", test, profile
+                    self.results_dir + "/compile-time", test, profile, FLAG
                 )
                 with open(profile_path, "r") as f:
                     self.results += [(test, profile, sum([int(line) for line in f]))]
@@ -314,7 +314,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/object-size"):
             for profile in os.listdir(self.results_dir + "/object-size/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/object-size", test, profile
+                    self.results_dir + "/object-size", test, profile, FLAG
                 )
                 with open(profile_path, "r") as f:
                     sum = 0
@@ -441,7 +441,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/memory-usage"):
             for profile in os.listdir(self.results_dir + "/memory-usage/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/memory-usage", test, profile
+                    self.results_dir + "/memory-usage", test, profile, FLAG
                 )
                 maximum = 0
                 with open(profile_path, "r") as f:
@@ -568,7 +568,7 @@ class TestInfoExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/object-size"):
             profile = os.listdir(self.results_dir + "/object-size/" + test)[0]
             profile_path = os.path.join(
-                self.results_dir + "/object-size", test, profile
+                self.results_dir + "/object-size", test, profile, FLAG
             )
             loc = 0
             with open(profile_path, "r") as f:
@@ -617,6 +617,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert results to CSV")
     parser.add_argument("results_dir", type=str, help="Results directory")
     parser.add_argument("test_profiles_dir", type=str, help="Test profiles directory")
+    parser.add_argument("optimization_flag", type=str, help="Optimization flag")
     parser.add_argument(
         "-c", "--csv", action="store_true", help="Plot results from CSV"
     )
@@ -633,6 +634,8 @@ if __name__ == "__main__":
     if not os.path.isdir(results_dir):
         print(f"Results directory {results_dir} does not exist!")
         exit(1)
+
+    FLAG = args.optimization_flag.replace("-", "")
 
     CSV_PATH = results_dir + "/csv"
     RUNTIME_RESULTS_FILE = CSV_PATH + "/runtime-results.csv"
