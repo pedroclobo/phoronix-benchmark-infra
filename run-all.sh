@@ -178,6 +178,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
             popd
 
             pushd $RESULTS_REPO
+            find . -name "s,^.*" | xargs rm -rf
             git add .
             git commit --no-gpg-sign -m "$CONFIG_NAME($(echo $opt_flag | tr -d '-')): $p"
             git push -f
