@@ -296,7 +296,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         ax.legend(
             labels=["Prototype", "LLVM 19.1.0"],
-            loc="lower right",
+            loc="upper right",
             fontsize=12,
             frameon=True,
             framealpha=1,
@@ -424,7 +424,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
 
         ax.legend(
             labels=["Prototype", "LLVM 19.1.0"],
-            loc="lower right",
+            loc="upper right",
             fontsize=12,
             frameon=True,
             framealpha=1,
@@ -546,7 +546,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
 
         ax.legend(
             labels=["Prototype", "LLVM 19.1.0"],
-            loc="lower right",
+            loc="upper right",
             fontsize=12,
             frameon=True,
             framealpha=1,
