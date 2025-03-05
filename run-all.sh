@@ -98,11 +98,13 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         rm -rf $RESULTS_PATH/object-size/*
         rm -rf $RESULTS_PATH/compile-time/*
         rm -rf $RESULTS_PATH/memory-usage/*
+        rm -rf $RESULTS_PATH/compiler-logs/*
 
-        # Create directory for compile time, object size and memory usage results
+        # Create directory for compile time, object size, memory usage and compiler logs
         [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
         [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
         [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
+        [ ! -d $RESULTS_PATH/compiler-logs ] && mkdir $RESULTS_PATH/compiler-logs
 
         # Phoronix test suite command
         export PTS="$PTS_BASE/phoronix-test-suite"
@@ -168,13 +170,14 @@ for p in $(grep -v '#' $PROFILES_FILE); do
             cp -r compile-time $RESULTS_REPO
             cp -r object-size $RESULTS_REPO
             cp -r memory-usage $RESULTS_REPO
+            cp -r compiler-logs $RESULTS_REPO
             for dir in test-results/*; do
                 mkdir -p $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d '-')
                 mv $dir/* $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d -)
             done
             cp -r test-results $RESULTS_REPO
 
-            rm -rf compile-time installed-tests object-size memory-usage test-results
+            rm -rf compile-time installed-tests object-size memory-usage test-results compiler-logs
             popd
 
             pushd $RESULTS_REPO

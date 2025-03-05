@@ -78,10 +78,11 @@ rm -rf $RESULTS_PATH/object-size/*
 rm -rf $RESULTS_PATH/compile-time/*
 rm -rf $RESULTS_PATH/memory-usage/*
 
-# Create directory for compile time, object size and memory usage results
+# Create directory for compile time, object size, memory usage and compiler logs
 [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
 [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
 [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
+[ ! -d $RESULTS_PATH/compiler-logs ] && mkdir $RESULTS_PATH/compiler-logs
 
 # Prepare environement to decrease result variance (needs sudo)
 [[ $run_prepare -eq 1 ]] && ./prepare-benchmark-env.sh 1

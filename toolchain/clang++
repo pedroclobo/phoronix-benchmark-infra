@@ -35,6 +35,11 @@ MEM_FILE=$MEM_DIR/$(echo $OPT_FLAG | tr -d -)
 /usr/bin/time -pf '%M' -o $MEM_FILE -a ${LLVM_PATH}/clang++ $args ${FLAGS}
 exit_code=$?
 
+# Log compiler invocations
+COMPILER_LOG_DIR=$RESULTS_PATH/compiler-logs/${basename}/${CONFIG_NAME}
+[ ! -d $COMPILER_LOG_DIR ] && mkdir -p $COMPILER_LOG_DIR
+echo "${LLVM_PATH}/clang++ $args ${FLAGS}" >> $COMPILER_LOG_DIR/$(echo $OPT_FLAG | tr -d -)
+
 # Measure elapsed time (compile time)
 end_time=$(date +%s%3N)
 elapsed_time=$((end_time - start_time))
