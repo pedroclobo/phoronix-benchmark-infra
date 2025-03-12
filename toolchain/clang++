@@ -46,6 +46,6 @@ elapsed_time=$((end_time - start_time))
 TIME_DIR=$RESULTS_PATH/compile-time/${basename}/${CONFIG_NAME}
 TIME_FILE=$TIME_DIR/$(echo $OPT_FLAG | tr -d -)
 [ ! -d $TIME_DIR ] && mkdir -p $TIME_DIR
-echo "$elapsed_time" >> $TIME_FILE
+echo -e "${LLVM_PATH}/clang++ $args ${FLAGS}\t$elapsed_time" >> $TIME_FILE
 
 exit $exit_code

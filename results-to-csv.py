@@ -197,7 +197,8 @@ class CompileTimeResultsExtractor(ResultsExtractor):
                     self.results_dir + "/compile-time", test, profile, FLAG
                 )
                 with open(profile_path, "r") as f:
-                    self.results += [(test, profile, sum([int(line) for line in f]))]
+                    nums = [int(line.split("\t")[1]) for line in f]
+                    self.results += [(test, profile, sum(nums))]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
 
