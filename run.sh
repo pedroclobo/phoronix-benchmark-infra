@@ -77,11 +77,13 @@ rm -rf $RESULTS_PATH/test-results/*
 rm -rf $RESULTS_PATH/object-size/*
 rm -rf $RESULTS_PATH/compile-time/*
 rm -rf $RESULTS_PATH/memory-usage/*
+rm -rf $RESULTS_PATH/asm-size/*
 
 # Create directory for compile time, object size, memory usage and compiler logs
 [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
 [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
 [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
+[ ! -d $RESULTS_PATH/asm-size ] && mkdir $RESULTS_PATH/asm-size
 [ ! -d $RESULTS_PATH/compiler-logs ] && mkdir $RESULTS_PATH/compiler-logs
 
 # Prepare environement to decrease result variance (needs sudo)
@@ -127,6 +129,17 @@ for p in $(grep -v '#' $PROFILES_FILE); do
 	du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
 		echo -e "$size\t$file\t$(file -b "$file")"
 	done > $SIZE_DIR/$opt_flag
+
+	# Measure asm function sizes
+	ASM_DIR=$RESULTS_PATH/asm-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
+	[ ! -d $ASM_DIR ] && mkdir -p $ASM_DIR
+	find $RESULTS_PATH/installed-tests/$p -type f -exec file {} \; \
+	| grep -E "ELF" | cut -d':' -f1 | while read -r binary_file; do
+		base_name=$(basename "$binary_file")
+		output_file="$ASM_DIR/${base_name}_${opt_flag}.sizes"
+		nm --size-sort -t d "$binary_file" | grep -E ' T | t ' | awk '{print $1, $3}' >> $ASM_DIR/$(echo $opt_flag | tr -d '-')
+	done
+	sort -u -o $ASM_DIR/$(echo $opt_flag | tr -d '-') $ASM_DIR/$(echo $opt_flag | tr -d '-')
 
 	# Run the test
 	result_name=`echo $p | cut -d'/' -f2`"_"

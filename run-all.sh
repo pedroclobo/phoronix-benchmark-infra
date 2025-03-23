@@ -98,12 +98,14 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         rm -rf $RESULTS_PATH/object-size/*
         rm -rf $RESULTS_PATH/compile-time/*
         rm -rf $RESULTS_PATH/memory-usage/*
+        rm -rf $RESULTS_PATH/asm-size/*
         rm -rf $RESULTS_PATH/compiler-logs/*
 
         # Create directory for compile time, object size, memory usage and compiler logs
         [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
         [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
         [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
+        [ ! -d $RESULTS_PATH/asm-size ] && mkdir $RESULTS_PATH/asm-size
         [ ! -d $RESULTS_PATH/compiler-logs ] && mkdir $RESULTS_PATH/compiler-logs
 
         # Phoronix test suite command
@@ -157,6 +159,17 @@ for p in $(grep -v '#' $PROFILES_FILE); do
                 echo -e "$size\t$file\t$(file -b "$file")"
             done > $SIZE_DIR/$(echo $opt_flag | tr -d '-')
 
+            # Measure asm function sizes
+            ASM_DIR=$RESULTS_PATH/asm-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
+            [ ! -d $ASM_DIR ] && mkdir -p $ASM_DIR
+            find $RESULTS_PATH/installed-tests/$p -type f -exec file {} \; \
+            | grep -E "ELF" | cut -d':' -f1 | while read -r binary_file; do
+                base_name=$(basename "$binary_file")
+                output_file="$ASM_DIR/${base_name}_${opt_flag}.sizes"
+                nm --size-sort -t d "$binary_file" | grep -E ' T | t ' | awk '{print $1, $3}' >> $ASM_DIR/$(echo $opt_flag | tr -d '-')
+            done
+            sort -u -o $ASM_DIR/$(echo $opt_flag | tr -d '-') $ASM_DIR/$(echo $opt_flag | tr -d '-')
+
             # Run tests with a single CPU core
             OLD_NUM_CPU_CORES=$NUM_CPU_CORES
             export NUM_CPU_CORES=1
@@ -170,6 +183,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
             cp -r compile-time $RESULTS_REPO
             cp -r object-size $RESULTS_REPO
             cp -r memory-usage $RESULTS_REPO
+            cp -r asm-size $RESULTS_REPO
             cp -r compiler-logs $RESULTS_REPO
             for dir in test-results/*; do
                 mkdir -p $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d '-')
@@ -177,7 +191,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
             done
             cp -r test-results $RESULTS_REPO
 
-            rm -rf compile-time installed-tests object-size memory-usage test-results compiler-logs
+            rm -rf compile-time installed-tests object-size memory-usage asm-size test-results compiler-logs
             popd
 
             pushd $RESULTS_REPO
@@ -207,6 +221,9 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     echo "## Object Size" >> $RESULTS_REPO/README.md
     echo "![Object Size](plots/object-size.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
+    echo "## ASM Size" >> $RESULTS_REPO/README.md
+    echo "![ASM Size](plots/asm-size.svg)" >> $RESULTS_REPO/README.md
+    echo "" >> $RESULTS_REPO/README.md
     echo "## Runtime" >> $RESULTS_REPO/README.md
     echo "![Runtime](plots/runtime.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
@@ -222,5 +239,6 @@ done
 rm -rf $RESULTS_PATH/installed-tests/*
 rm -rf $RESULTS_PATH/test-results/*
 rm -rf $RESULTS_PATH/object-size/*
+rm -rf $RESULTS_PATH/asm-size/*
 rm -rf $RESULTS_PATH/compile-time/*
 rm -rf $RESULTS_PATH/memory-usage/*

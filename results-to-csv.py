@@ -611,6 +611,174 @@ class TestInfoExtractor(ResultsExtractor):
         raise NotImplementedError
 
 
+class AsmSizeResultsExtractor(ResultsExtractor):
+    def compute_results(self):
+        self.results = []
+        self.function_sizes = {}
+
+        for test in os.listdir(self.results_dir + "/asm-size"):
+            self.function_sizes[test] = {}
+
+            for profile in os.listdir(self.results_dir + "/asm-size/" + test):
+                self.function_sizes[test][profile] = {}
+                profile_path = os.path.join(
+                    self.results_dir + "/asm-size", test, profile, FLAG
+                )
+
+                with open(profile_path, "r") as f:
+                    for line in f:
+                        size_str, func_name = line.strip().split()
+                        size = int(size_str)
+                        self.function_sizes[test][profile][func_name] = size
+                        self.results.append((test, profile, func_name, size))
+
+        self.results.sort(key=lambda x: (x[0], x[1], x[3], x[2]))
+
+    def write_results(self, results_file):
+        print(f"Writing ASM function size results to {results_file}")
+        with open(results_file, "w") as f:
+            f.write("Test;Profile;Function;Size\n")
+            for test, profile, func_name, size in self.results:
+                func_name = func_name.replace(";", "\\;")
+                f.write(f"{test};{profile};{func_name};{size}\n")
+
+    def merge_results(self, results_file):
+        # Not applicable for this analysis
+        pass
+
+    def plot_results(self, results_file, plot_dir):
+        plot_file = f"{plot_dir}/asm-size.svg"
+        print(f"Plotting ASM function size to {plot_file}")
+
+        # First pass: collect data
+        test_data = {}
+        tests = []
+        for test in self.function_sizes:
+            min_diff = float('inf')
+            max_diff = float('-inf')
+            if "base" not in self.function_sizes[test] or \
+               "byte" not in self.function_sizes[test]:
+                continue
+
+            base_sizes = self.function_sizes[test]["base"]
+            byte_sizes = self.function_sizes[test]["byte"]
+            common_funcs = set(base_sizes.keys()) & set(byte_sizes.keys())
+
+            if not common_funcs: continue
+
+            size_diffs_nonzero = []
+            total_diff = 0
+            for func in common_funcs:
+                diff = byte_sizes[func] - base_sizes[func]
+                total_diff += diff
+
+                if diff != 0:
+                    size_diffs_nonzero.append(diff)
+                    if diff < min_diff:
+                        min_diff = diff
+                        min_func = func
+                    if diff > max_diff:
+                        max_diff = diff
+                        max_func = func
+
+            if size_diffs_nonzero:
+                tests.append(test)
+                test_data[test] = {
+                    'diffs': size_diffs_nonzero,
+                    'total_diff': total_diff,
+                    'min_func': min_func,
+                    'max_func': max_func
+                }
+
+        # Alphabetically sort the tests
+        tests.sort()
+
+        # Create subplots - limit to 8 tests maximum for readability
+        n_tests = len(tests)
+
+        # Create a figure with one row per test
+        fig, axes = plt.subplots(n_tests, 1, figsize=(10, 3 * n_tests), sharex=True)
+        if n_tests == 1:
+            axes = [axes]  # Handle case with only one test
+
+        # Common bin settings
+        bin_width = max(1, int((max_diff - min_diff) / 50))  # Around 50 bins for the range
+        bins = np.arange(min_diff - bin_width, max_diff + bin_width * 2, bin_width)
+
+        # Second pass: create histograms using common bin settings
+        for i, test in enumerate(tests):
+            ax = axes[i]
+            ax.set_facecolor(BACKGROUND)
+
+            diffs = test_data[test]['diffs']
+            total = test_data[test]['total_diff']
+
+            # Plot histogram with log scale to emphasize low counts
+            n, bins, patches = ax.hist(diffs, bins=bins, alpha=0.7)
+
+            # Set local y-axis scale with 10% padding
+            max_height = max(n) if len(n) > 0 else 1
+            ax.set_ylim(0, max_height * 1.1)
+
+            # Set log scale on y-axis to emphasize bins with low counts
+            ax.set_yscale('symlog', linthresh=3)  # Linear below 3, logarithmic above
+
+            # Add minor ticks to better show the scale
+            ax.minorticks_on()
+
+            # Color negative (better) green and positive (worse) red
+            for j, patch in enumerate(patches):
+                patch.set_facecolor(GREEN if bins[j] < 0 else RED)
+
+            # Add vertical line at x=0
+            ax.axvline(x=0, color='black', linestyle='--', alpha=0.7)
+
+            # Add test name and summary
+            ax.set_ylabel(test, fontsize=12, rotation=45, ha='right', va='center')
+
+            # Summary
+            min_diff = min(diffs) if diffs else 0
+            max_diff = max(diffs) if diffs else 0
+            median_diff = np.median(diffs) if diffs else 0
+            avg_diff = np.mean(diffs) if diffs else 0
+
+            min_func = test_data[test].get('min_func')
+            max_func = test_data[test].get('max_func')
+
+            summary = f"$\\mathbf{{Net:}}$   {total:,d} bytes\n"
+            summary += f"$\\mathbf{{Min:}}$  {min_diff:,d} @ {min_func}\n"
+            summary += f"$\\mathbf{{Max:}}$  {max_diff:,d} @ {max_func}\n"
+            summary += f"$\\mathbf{{Med:}}$  {median_diff:.1f}\n"
+            summary += f"$\\mathbf{{Avg:}}$  {avg_diff:.1f}"
+
+            # Position text box in upper right, with left-aligned text
+            ax.text(0.98, 0.92, summary, transform=ax.transAxes,
+                    ha='right', va='top', fontsize=9,
+                    bbox=dict(boxstyle='round', facecolor='white', pad=0.6),
+                    multialignment='left',
+                    usetex=False)
+
+            # Grid
+            ax.grid(
+                True,
+                which="both",
+                axis="both",
+                linestyle="dotted",
+                color="#8B949E",
+                alpha=0.7,
+            )
+
+        # Common x-axis label
+        axes[-1].set_xlabel("Size difference (bytes)", fontsize=12, color=BLACK)
+
+        # Adjust layout
+        plt.tight_layout()
+
+        # Save the combined figure
+        plt.savefig(plot_file)
+        plt.close(fig)
+
+
 if __name__ == "__main__":
 
     # User must supply results directory
@@ -643,6 +811,7 @@ if __name__ == "__main__":
     COMPILE_TIME_RESULTS_FILE = CSV_PATH + "/compile-time-results.csv"
     OBJECT_SIZE_RESULTS_FILE = CSV_PATH + "/object-size-results.csv"
     MEMORY_USAGE_RESULTS_FILE = CSV_PATH + "/memory-usage-results.csv"
+    ASM_SIZE_RESULTS_FILE = CSV_PATH + "/asm-size-results.csv"
     TEST_INFO_FILE = CSV_PATH + "/test-info.csv"
 
     # Create the csv directory if it does not exist already
@@ -653,6 +822,7 @@ if __name__ == "__main__":
     runtime = RuntimeResultsExtractor(results_dir)
     object_size = ObjectSizeResultsExtractor(results_dir)
     memory_usage = MemoryUsageResultsExtractor(results_dir)
+    asm_size = AsmSizeResultsExtractor(results_dir)
     test_info = TestInfoExtractor(results_dir, args.test_profiles_dir)
 
     if not args.csv:
@@ -660,12 +830,14 @@ if __name__ == "__main__":
         runtime.write_results(RUNTIME_RESULTS_FILE)
         object_size.write_results(OBJECT_SIZE_RESULTS_FILE)
         memory_usage.write_results(MEMORY_USAGE_RESULTS_FILE)
+        asm_size.write_results(ASM_SIZE_RESULTS_FILE)
         test_info.write_results(TEST_INFO_FILE)
     else:
         for results_file in [
             COMPILE_TIME_RESULTS_FILE,
             RUNTIME_RESULTS_FILE,
             OBJECT_SIZE_RESULTS_FILE,
+            ASM_SIZE_RESULTS_FILE,
         ]:
             if not os.path.exists(results_file):
                 print(f"Results file {results_file} does not exist!")
@@ -680,6 +852,7 @@ if __name__ == "__main__":
         runtime.plot_results(RUNTIME_RESULTS_FILE, PLOT_PATH)
         object_size.plot_results(OBJECT_SIZE_RESULTS_FILE, PLOT_PATH)
         memory_usage.plot_results(MEMORY_USAGE_RESULTS_FILE, PLOT_PATH)
+        asm_size.plot_results(ASM_SIZE_RESULTS_FILE, PLOT_PATH)
 
     if args.merge:
         compile_time.merge_results(COMPILE_TIME_RESULTS_FILE)
