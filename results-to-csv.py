@@ -51,7 +51,11 @@ class RuntimeResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/test-results"):
             for profile in os.listdir(self.results_dir + "/test-results/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/test-results", test, profile, FLAG, "composite.xml"
+                    self.results_dir + "/test-results",
+                    test,
+                    profile,
+                    FLAG,
+                    "composite.xml",
                 )
                 tree = ET.parse(profile_path)
                 root = tree.getroot()
@@ -653,114 +657,134 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         # First pass: collect data
         test_data = {}
         tests = []
-        global_min_diff = float('inf')
-        global_max_diff = float('-inf')
+        global_min_size = float("inf")
+        global_max_size = float("-inf")
+
         for test in self.function_sizes:
-            min_diff = float('inf')
-            max_diff = float('-inf')
-            if "base" not in self.function_sizes[test] or \
-               "byte" not in self.function_sizes[test]:
+            if (
+                "base" not in self.function_sizes[test]
+                or "byte" not in self.function_sizes[test]
+            ):
                 continue
 
             base_sizes = self.function_sizes[test]["base"]
             byte_sizes = self.function_sizes[test]["byte"]
             common_funcs = set(base_sizes.keys()) & set(byte_sizes.keys())
 
-            if not common_funcs: continue
+            if not common_funcs:
+                continue
 
-            size_diffs_nonzero = []
-            total_diff = 0
-            for func in common_funcs:
-                diff = byte_sizes[func] - base_sizes[func]
-                total_diff += diff
+            # Store sizes for both profiles
+            base_func_sizes = [base_sizes[func] for func in common_funcs]
+            byte_func_sizes = [byte_sizes[func] for func in common_funcs]
 
-                if diff != 0:
-                    size_diffs_nonzero.append(diff)
-                    global_min_diff = min(global_min_diff, diff)
-                    global_max_diff = max(global_max_diff, diff)
-                    if diff < min_diff:
-                        min_diff = diff
-                        min_func = func
-                    if diff > max_diff:
-                        max_diff = diff
-                        max_func = func
+            # Update global min/max for bin calculation
+            global_min_size = min(
+                global_min_size, min(base_func_sizes), min(byte_func_sizes)
+            )
+            global_max_size = max(
+                global_max_size, max(base_func_sizes), max(byte_func_sizes)
+            )
 
-            if size_diffs_nonzero:
-                tests.append(test)
-                test_data[test] = {
-                    'diffs': size_diffs_nonzero,
-                    'total_diff': total_diff,
-                    'min_func': min_func,
-                    'max_func': max_func
-                }
+            # Calculate total sizes
+            base_total = sum(base_func_sizes)
+            byte_total = sum(byte_func_sizes)
+            total_diff = byte_total - base_total
+
+            # Find min/max differences for summary
+            size_diffs = [byte_sizes[func] - base_sizes[func] for func in common_funcs]
+            min_diff = min(size_diffs)
+            max_diff = max(size_diffs)
+
+            min_func = [
+                func
+                for func in common_funcs
+                if byte_sizes[func] - base_sizes[func] == min_diff
+            ][0]
+            max_func = [
+                func
+                for func in common_funcs
+                if byte_sizes[func] - base_sizes[func] == max_diff
+            ][0]
+
+            tests.append(test)
+            test_data[test] = {
+                "base_sizes": base_func_sizes,
+                "byte_sizes": byte_func_sizes,
+                "base_total": base_total,
+                "byte_total": byte_total,
+                "total_diff": total_diff,
+                "min_diff": min_diff,
+                "max_diff": max_diff,
+                "min_func": min_func,
+                "max_func": max_func,
+            }
 
         # Alphabetically sort the tests
         tests.sort()
 
-        # Create subplots - limit to 8 tests maximum for readability
-        n_tests = len(tests)
-
         # Create a figure with one row per test
+        n_tests = len(tests)
         fig, axes = plt.subplots(n_tests, 1, figsize=(10, 3 * n_tests), sharex=True)
         if n_tests == 1:
             axes = [axes]  # Handle case with only one test
 
-        # Common bin settings
-        bin_width = max(1, int((global_max_diff - global_min_diff) / 50))  # Around 50 bins for the range
-        bins = np.arange(global_min_diff - bin_width, global_max_diff + bin_width * 2, bin_width)
+        # Use logarithmic bins since function sizes can vary widely
+        log_min = np.log10(max(1, global_min_size))
+        log_max = np.log10(global_max_size)
+        bins = np.logspace(log_min, log_max, 150)
 
-        # Second pass: create histograms using common bin settings
+        # Create histograms for each test
         for i, test in enumerate(tests):
             ax = axes[i]
             ax.set_facecolor(BACKGROUND)
 
-            diffs = test_data[test]['diffs']
-            total = test_data[test]['total_diff']
+            data = test_data[test]
 
-            # Plot histogram with log scale to emphasize low counts
-            n, bins, patches = ax.hist(diffs, bins=bins, alpha=0.7)
+            # Plot overlapping histograms with transparency
+            ax.hist(
+                data["base_sizes"],
+                bins=bins,
+                alpha=0.5,
+                color=RED,
+                label="LLVM 19.1.0",
+            )
+            ax.hist(
+                data["byte_sizes"],
+                bins=bins,
+                alpha=0.5,
+                color=BLUE,
+                label="Prototype",
+            )
 
-            # Set local y-axis scale with 10% padding
-            max_height = max(n) if len(n) > 0 else 1
-            ax.set_ylim(0, max_height * 1.1)
+            # Set log scale on both axes
+            ax.set_xscale("log")
+            ax.set_yscale("symlog", linthresh=3)  # Linear below 3, logarithmic above
 
-            # Set log scale on y-axis to emphasize bins with low counts
-            ax.set_yscale('symlog', linthresh=3)  # Linear below 3, logarithmic above
+            # Add test name
+            ax.set_ylabel(test, fontsize=12, rotation=45, ha="right", va="center")
 
-            # Add minor ticks to better show the scale
-            ax.minorticks_on()
+            # Add legend
+            ax.legend(loc="upper right")
 
-            # Color negative (better) green and positive (worse) red
-            for j, patch in enumerate(patches):
-                patch.set_facecolor(GREEN if bins[j] < 0 else RED)
+            # Add summary statistics - simplified
+            summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
+            summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
+            summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 
-            # Add vertical line at x=0
-            ax.axvline(x=0, color='black', linestyle='--', alpha=0.7)
-
-            # Add test name and summary
-            ax.set_ylabel(test, fontsize=12, rotation=45, ha='right', va='center')
-
-            # Summary
-            min_diff = min(diffs) if diffs else 0
-            max_diff = max(diffs) if diffs else 0
-            median_diff = np.median(diffs) if diffs else 0
-            avg_diff = np.mean(diffs) if diffs else 0
-
-            min_func = test_data[test].get('min_func')
-            max_func = test_data[test].get('max_func')
-
-            summary = f"$\\mathbf{{Net:}}$   {total:,d} bytes\n"
-            summary += f"$\\mathbf{{Min:}}$  {min_diff:,d} @ {min_func}\n"
-            summary += f"$\\mathbf{{Max:}}$  {max_diff:,d} @ {max_func}\n"
-            summary += f"$\\mathbf{{Med:}}$  {median_diff:.1f}\n"
-            summary += f"$\\mathbf{{Avg:}}$  {avg_diff:.1f}"
-
-            # Position text box in upper right, with left-aligned text
-            ax.text(0.98, 0.92, summary, transform=ax.transAxes,
-                    ha='right', va='top', fontsize=9,
-                    bbox=dict(boxstyle='round', facecolor='white', pad=0.6),
-                    multialignment='left',
-                    usetex=False)
+            # Position text box in lower left corner
+            ax.text(
+                0.02,
+                1.05,  # Position near bottom instead of top
+                summary,
+                transform=ax.transAxes,
+                ha="left",
+                va="bottom",  # Changed from "top" to "bottom"
+                fontsize=9,
+                bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, pad=0.6),
+                multialignment="left",
+                usetex=False,
+            )
 
             # Grid
             ax.grid(
@@ -773,7 +797,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             )
 
         # Common x-axis label
-        axes[-1].set_xlabel("Size difference (bytes)", fontsize=12, color=BLACK)
+        axes[-1].set_xlabel("Function Size (bytes)", fontsize=12, color=BLACK)
 
         # Adjust layout
         plt.tight_layout()
