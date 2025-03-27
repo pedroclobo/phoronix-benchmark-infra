@@ -653,6 +653,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         # First pass: collect data
         test_data = {}
         tests = []
+        global_min_diff = float('inf')
+        global_max_diff = float('-inf')
         for test in self.function_sizes:
             min_diff = float('inf')
             max_diff = float('-inf')
@@ -674,6 +676,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
 
                 if diff != 0:
                     size_diffs_nonzero.append(diff)
+                    global_min_diff = min(global_min_diff, diff)
+                    global_max_diff = max(global_max_diff, diff)
                     if diff < min_diff:
                         min_diff = diff
                         min_func = func
@@ -702,8 +706,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             axes = [axes]  # Handle case with only one test
 
         # Common bin settings
-        bin_width = max(1, int((max_diff - min_diff) / 50))  # Around 50 bins for the range
-        bins = np.arange(min_diff - bin_width, max_diff + bin_width * 2, bin_width)
+        bin_width = max(1, int((global_max_diff - global_min_diff) / 50))  # Around 50 bins for the range
+        bins = np.arange(global_min_diff - bin_width, global_max_diff + bin_width * 2, bin_width)
 
         # Second pass: create histograms using common bin settings
         for i, test in enumerate(tests):
