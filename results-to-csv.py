@@ -49,28 +49,25 @@ class RuntimeResultsExtractor(ResultsExtractor):
         self.results = []
 
         for test in os.listdir(self.results_dir + "/test-results"):
-            for profile in os.listdir(self.results_dir + "/test-results/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/test-results",
-                    test,
-                    profile,
-                    FLAG,
-                    "composite.xml",
-                )
-                tree = ET.parse(profile_path)
-                root = tree.getroot()
+            path = os.path.join(
+                self.results_dir + "/test-results",
+                test,
+                FLAG,
+                "composite.xml",
+            )
+            tree = ET.parse(path)
+            root = tree.getroot()
 
-                for result in root.findall(".//Result"):
-                    title = result.find("Identifier").text
-                    description = result.find("Description").text or "No description"
-                    scale = result.find("Scale").text
-                    proportion = result.find("Proportion").text
-                    for entry in result.findall(".//Data/Entry"):
-                        profile = entry.find("Identifier").text
-                        value = entry.find("Value").text or float("nan")
-                        self.results.append(
-                            (title, description, scale, proportion, profile, value)
-                        )
+            for result in root.findall(".//Result"):
+                description = result.find("Description").text or "No description"
+                scale = result.find("Scale").text
+                proportion = result.find("Proportion").text
+                for entry in result.findall(".//Data/Entry"):
+                    profile = entry.find("Identifier").text
+                    value = entry.find("Value").text or float("nan")
+                    self.results.append(
+                        (test, description, scale, proportion, profile, value)
+                    )
 
         self.results.sort(key=lambda x: (x[0], x[4], x[1]))
 
@@ -197,12 +194,13 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/compile-time"):
             for profile in os.listdir(self.results_dir + "/compile-time/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/compile-time", test, profile, FLAG
-                )
-                with open(profile_path, "r") as f:
-                    nums = [int(line.split("\t")[1]) for line in f]
-                    self.results += [(test, profile, sum(nums))]
+                flag_dir = os.path.join(self.results_dir, "compile-time", test, profile, FLAG)
+                times = [
+                    int(line.split("\t")[1])
+                    for f in os.listdir(flag_dir)
+                    for line in open(os.path.join(flag_dir, f)).read().splitlines()
+                ]
+                self.results += [(test, profile, sum(times) / len(os.listdir(flag_dir)))]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
 
@@ -319,17 +317,13 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/object-size"):
             for profile in os.listdir(self.results_dir + "/object-size/" + test):
                 profile_path = os.path.join(
-                    self.results_dir + "/object-size", test, profile, FLAG
+                    self.results_dir + "/object-size", test, profile, f"{FLAG}.txt"
                 )
                 with open(profile_path, "r") as f:
                     sum = 0
                     for line in f:
-                        # File output has a tab
-                        if (len(line.split("\t"))) != 3:
-                            continue
-                        size, _, type = line.split("\t")
-                        if "ELF" in type:
-                            sum += int(size)
+                        size, _ = line.split("\t")
+                        sum += int(size)
                     self.results += [(test, profile, sum)]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
@@ -445,16 +439,17 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
         self.results = []
         for test in os.listdir(self.results_dir + "/memory-usage"):
             for profile in os.listdir(self.results_dir + "/memory-usage/" + test):
-                profile_path = os.path.join(
-                    self.results_dir + "/memory-usage", test, profile, FLAG
+                flag_dir = os.path.join(
+                    self.results_dir, "memory-usage", test, profile, FLAG
                 )
-                maximum = 0
-                with open(profile_path, "r") as f:
-                    for line in f:
-                        if re.match(r"^\d+$", line.strip()):
-                            maximum = max(maximum, int(line.strip()))
+                mem_usage = []
+                for f in os.listdir(flag_dir):
+                    with open(os.path.join(flag_dir, f), "r") as f:
+                        for line in f:
+                            if re.match(r"^\d+$", line.strip()):
+                                mem_usage += [int(line.strip())]
 
-                self.results += [(test, profile, maximum)]
+                self.results += [(test, profile, max(mem_usage) / len(os.listdir(flag_dir)))]
 
     def write_results(self, results_file):
         print(f"Writing memory usage results to {results_file}")
@@ -573,7 +568,7 @@ class TestInfoExtractor(ResultsExtractor):
         for test in os.listdir(self.results_dir + "/object-size"):
             profile = os.listdir(self.results_dir + "/object-size/" + test)[0]
             profile_path = os.path.join(
-                self.results_dir + "/object-size", test, profile, FLAG
+                self.results_dir + "/object-size", test, profile, f"{FLAG}.txt"
             )
             loc = 0
             with open(profile_path, "r") as f:
@@ -619,15 +614,19 @@ class AsmSizeResultsExtractor(ResultsExtractor):
     def compute_results(self):
         self.results = []
         self.function_sizes = {}
+        self.all_functions = {}
+        self.diff_functions = {}
 
-        for test in os.listdir(self.results_dir + "/asm-size"):
+        for test in os.listdir(self.results_dir + "/asm-diff"):
             self.function_sizes[test] = {}
 
-            for profile in os.listdir(self.results_dir + "/asm-size/" + test):
+            for profile in os.listdir(self.results_dir + "/asm-diff/" + test):
                 self.function_sizes[test][profile] = {}
                 profile_path = os.path.join(
-                    self.results_dir + "/asm-size", test, profile, FLAG
+                    self.results_dir + "/asm-diff", test, profile, FLAG, "sizes.txt"
                 )
+
+                if (not os.path.exists(profile_path)): continue
 
                 with open(profile_path, "r") as f:
                     for line in f:
@@ -635,6 +634,17 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                         size = int(size_str)
                         self.function_sizes[test][profile][func_name] = size
                         self.results.append((test, profile, func_name, size))
+
+                all_functions_path = os.path.join(
+                    self.results_dir + "/asm-diff", test, FLAG, "all.txt"
+                )
+                with open(all_functions_path, "r") as f:
+                    self.all_functions[test] = sum(1 for _ in f)
+                diff_functions_path = os.path.join(
+                    self.results_dir + "/asm-diff", test, FLAG, "diff.txt"
+                )
+                with open(diff_functions_path, "r") as f:
+                    self.diff_functions[test] = sum(1 for _ in f)
 
         self.results.sort(key=lambda x: (x[0], x[1], x[3], x[2]))
 
@@ -651,7 +661,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         pass
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/asm-size.svg"
+        plot_file = f"{plot_dir}/asm-diff.svg"
         print(f"Plotting ASM function size to {plot_file}")
 
         # First pass: collect data
@@ -769,6 +779,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
 
             # Add summary statistics - simplified
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
+            summary += f"\n$\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} functions"
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
             summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 

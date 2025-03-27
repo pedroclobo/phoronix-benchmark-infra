@@ -2,10 +2,21 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [options] <config_dir> <results_repo> <profiles_file>"
+    echo "Usage: $0 [options] <base_config> <other_config> <results_repo> <profiles_file> <pts_base> <test_profiles_path> <toolchain_path> <results_path>"
+    echo ""
+    echo "Arguments:"
+    echo "  <base_config>         JSON configuration"
+    echo "  <other_config>        JSON configuration"
+    echo "  <results_repo>        Repository to store results"
+    echo "  <profiles_file>       File containing test profiles to run"
+    echo "  <pts_base>            Path to Phoronix Test Suite"
+    echo "  <test_profiles_path>  Path to test profiles"
+    echo "  <toolchain_path>      Path to toolchain directory"
+    echo "  <results_path>        Path for storing results"
+    echo ""
     echo "Options:"
-    echo "  -p, --prepare   Tweak environement to decrease result variance (needs sudo)"
-    echo "  -h, --help      Display this message"
+    echo "  -p, --prepare         Tweak environment to decrease result variance (needs sudo)"
+    echo "  -h, --help            Display this message"
     exit 1
 }
 
@@ -37,22 +48,25 @@ while true; do
 done
 
 # Ensure config directory is provided
-[ $# -ne 3 ] && usage
-CONFIG_DIR="$1"
-RESULTS_REPO="$2"
-PROFILES_FILE="$3"
+[ $# -ne 8 ] && usage
+BASE_CONFIG="$1"
+OTHER_CONFIG="$2"
+export RESULTS_REPO="$3"
+PROFILES_FILE="$4"
+export PTS_BASE="$5"
+export TEST_PROFILES_PATH="$6"
+export TOOLCHAIN_PATH="$7"
+export RESULTS_PATH="$8"
+export PTS="$PTS_BASE/phoronix-test-suite"
 
-# Config directory must exist
-[ ! -d "$CONFIG_DIR" ] && echo "Configuration file does not exist!" && exit 1
-
-# Config directory must not be empty
-[ ! "$(ls -A $CONFIG_DIR | grep .json)" ] && \
-  echo "Configuration directory is empty!" && exit 1
-
-# Results repository must exist
-[ ! -d "$RESULTS_REPO" ] && echo "Results repository does not exist!" && exit 1
-[ ! -d "$RESULTS_REPO/.git" ] && \
-  echo "Results repository is not a git repository!" && exit 1
+[ ! -f "$BASE_CONFIG" ] && echo "Base config file does not exist: $BASE_CONFIG" && exit 1
+[ ! -f "$OTHER_CONFIG" ] && echo "Other config file does not exist: $OTHER_CONFIG" && exit 1
+[ ! -d "$RESULTS_REPO" ] && echo "Results repository does not exist: $RESULTS_REPO" && exit 1
+[ ! -d "$RESULTS_REPO/.git" ] && echo "Results repository is not a git repository!" && exit 1
+[ ! -f "$PROFILES_FILE" ] && echo "Profiles file does not exist: $PROFILES_FILE" && exit 1
+[ ! -d "$PTS_BASE" ] && echo "PTS not found: $PTS_BASE" && exit 1
+[ ! -d "$TEST_PROFILES_PATH" ] && echo "Test profiles not found: $TEST_PROFILES_PATH" && exit 1
+[ ! -d "$TOOLCHAIN_PATH" ] && echo "Toolchain not found: $TOOLCHAIN_PATH" && exit 1
 
 # Prepare environement to decrease result variance (needs sudo)
 [[ $run_prepare -eq 1 ]] && ./prepare-benchmark-env.sh 1
@@ -66,69 +80,60 @@ git rm -rf .
 git clean -df
 popd
 
+export PTS_SILENT_MODE=TRUE
+# Generate phoronix user configuration
+batch_setup=$(
+    # Save test results when in batch mode
+    echo y && \
+    # Open the web browser automatically when in batch mode
+    echo n && \
+    # Auto upload the results to OpenBenchmarking.org
+    echo n && \
+    # Prompt for test identifier
+    echo n && \
+    # Prompt for test description
+    echo n && \
+    # Prompt for saved results file-name
+    echo n && \
+    # Run all test options
+    echo y
+)
+echo $batch_setup | $PTS batch-setup
+
+# Delete previously installed tests and results
+rm -rf $RESULTS_PATH/installed-tests/*
+rm -rf $RESULTS_PATH/test-results/*
+rm -rf $RESULTS_PATH/object-size/*
+rm -rf $RESULTS_PATH/compile-time/*
+rm -rf $RESULTS_PATH/memory-usage/*
+rm -rf $RESULTS_PATH/asm-size/*
+rm -rf $RESULTS_PATH/compiler-logs/*
+
+# Create directory for compile time, object size, memory usage and compiler logs
+[ ! -d $RESULTS_PATH ] && mkdir $RESULTS_PATH
+
 for p in $(grep -v '#' $PROFILES_FILE); do
-    for c in $(ls $CONFIG_DIR/*.json); do
+    for c in $BASE_CONFIG $OTHER_CONFIG; do
         # Parse the config file
-        export CONFIG_NAME=$(jq -r '.CONFIG_NAME' "$c")
-        export PTS_BASE=$(jq -r '.PTS_BASE' "$c")
-        export TEST_PROFILES_PATH=$(jq -r '.TEST_PROFILES_PATH' "$c")
-        export TOOLCHAIN_PATH=$(jq -r '.TOOLCHAIN_PATH' "$c")
+        export CONFIG_NAME=$(basename "$c" .json)
         export LLVM_PATH=$(jq -r '.LLVM_PATH' "$c")
         export FLAGS=$(jq -r '.FLAGS' "$c")
-        export OPT_FLAGS=$(jq -r '.OPT_FLAGS[]' "$c")
-        export RESULTS_PATH=$(jq -r '.RESULTS_PATH' "$c")
+        export OPT_FLAG=$(jq -r '.OPT_FLAG' "$c")
         export NUM_CPU_CORES=$(jq -r '.NUM_CPU_CORES' "$c")
-        # Backup the original number of CPU cores
-        OLD_NUM_CPU_CORES=$NUM_CPU_CORES
         export PIN_CMD=$(jq -r '.PIN_CMD' "$c")
 
-        # Verify the paths
-        [ ! -d $PTS_BASE ] && echo "PTS not found!" && exit 1
-        [ ! -d $TEST_PROFILES_PATH ] && echo "Test profiles not found!" && exit 1
-        [ ! -d $TOOLCHAIN_PATH ] && echo "Toolchain not found!" && exit 1
-        [ ! -d $LLVM_PATH ] && echo "LLVM not found!" && exit 1
-        [ ! -d $RESULTS_PATH ] && mkdir $RESULTS_PATH
+        # Backup original number of CPU cores
+        OLD_NUM_CPU_CORES=$NUM_CPU_CORES
 
-        # Export the profile name to be used as a identifier in phoronix
+        [ ! -d $LLVM_PATH ] && echo "LLVM not found!" && exit 1
+
+        # Export profile name to be used as a identifier in phoronix
         export TEST_RESULTS_IDENTIFIER=$CONFIG_NAME
 
-        # Delete previously installed tests and results
-        rm -rf $RESULTS_PATH/installed-tests/*
-        rm -rf $RESULTS_PATH/test-results/*
-        rm -rf $RESULTS_PATH/object-size/*
-        rm -rf $RESULTS_PATH/compile-time/*
-        rm -rf $RESULTS_PATH/memory-usage/*
-        rm -rf $RESULTS_PATH/asm-size/*
-        rm -rf $RESULTS_PATH/compiler-logs/*
-
-        # Create directory for compile time, object size, memory usage and compiler logs
-        [ ! -d $RESULTS_PATH/object-size ] && mkdir $RESULTS_PATH/object-size
-        [ ! -d $RESULTS_PATH/compile-time ] && mkdir $RESULTS_PATH/compile-time
-        [ ! -d $RESULTS_PATH/memory-usage ] && mkdir $RESULTS_PATH/memory-usage
-        [ ! -d $RESULTS_PATH/asm-size ] && mkdir $RESULTS_PATH/asm-size
-        [ ! -d $RESULTS_PATH/compiler-logs ] && mkdir $RESULTS_PATH/compiler-logs
-
-        # Phoronix test suite command
-        export PTS="$PTS_BASE/phoronix-test-suite"
-
-        # Generate phoronix user configuration
-        batch_setup=$(
-            # Save test results when in batch mode
-            echo y && \
-            # Open the web browser automatically when in batch mode
-            echo n && \
-            # Auto upload the results to OpenBenchmarking.org
-            echo y && \
-            # Prompt for test identifier
-            echo n && \
-            # Prompt for test description
-            echo n && \
-            # Prompt for saved results file-name
-            echo n && \
-            # Run all test options
-            echo y
-        )
-        echo $batch_setup | $PTS batch-setup
+        # Override PTS install directory
+        export PTS_TEST_INSTALL_ROOT_PATH=$RESULTS_PATH/installed-tests/$CONFIG_NAME/
+        [ ! -d $PTS_TEST_INSTALL_ROOT_PATH ] && mkdir -p $PTS_TEST_INSTALL_ROOT_PATH
+        INSTALL_DIR=$PTS_TEST_INSTALL_ROOT_PATH"$p"
 
         # Export basename variable, used to measure compile time in toolchain/
         export basename=$(basename $p)
@@ -137,77 +142,96 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         export CC=$TOOLCHAIN_PATH/clang
         export CXX=$TOOLCHAIN_PATH/clang++
 
-        # Loop over opt flags
-        for opt_flag in $OPT_FLAGS; do
-            # Set compiler flags
-            export CFLAGS=$FLAGS" "$opt_flag
-            export CXXFLAGS=$FLAGS" "$opt_flag
+        # Set compiler flags
+        export CFLAGS=$FLAGS" "$OPT_FLAG
+        export CXXFLAGS=$FLAGS" "$OPT_FLAG
 
-            # Set original number of CPU cores
-            export NUM_CPU_CORES=$OLD_NUM_CPU_CORES
+        # Set original number of CPU cores
+        export NUM_CPU_CORES=$OLD_NUM_CPU_CORES
 
-            # Export current optimization flag
-            export OPT_FLAG=$opt_flag
-
-            # Install and measure compile time and memory usage
+        # Install and measure compile time and memory usage
+        for i in {1..3}; do
+            echo "Installing $p ($i/3)"
+            rm -rf $INSTALL_DIR
+            export INSTALL_ROUND=$i
             $PTS batch-install $p
+        done
 
-            # Measure object size
-            SIZE_DIR=$RESULTS_PATH/object-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
-            [ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
-            du -ab $RESULTS_PATH/installed-tests/$p | while read size file; do
-                echo -e "$size\t$file\t$(file -b "$file")"
-            done > $SIZE_DIR/$(echo $opt_flag | tr -d '-')
+        # Measure object size
+        SIZE_DIR=$RESULTS_REPO/object-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
+        [ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
+        SIZE_FILE=$SIZE_DIR/$(echo $OPT_FLAG | tr -d '-').txt
+        find $INSTALL_DIR -type f -exec file {} \; |
+          grep -Ei "ELF" | cut -d':' -f1 | while read -r file; do
+            size=$(du -b "$file" | cut -f1)
+            echo -e "$size\t$file"
+        done > $SIZE_FILE
 
-            # Measure asm function sizes
-            ASM_DIR=$RESULTS_PATH/asm-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
-            [ ! -d $ASM_DIR ] && mkdir -p $ASM_DIR
-            find $RESULTS_PATH/installed-tests/$p -type f -exec file {} \; \
-            | grep -E "ELF" | cut -d':' -f1 | while read -r binary_file; do
-                base_name=$(basename "$binary_file")
-                output_file="$ASM_DIR/${base_name}_${opt_flag}.sizes"
-                nm --size-sort -t d "$binary_file" | grep -E ' T | t ' | awk '{print $1, $3}' >> $ASM_DIR/$(echo $opt_flag | tr -d '-')
-            done
-            sort -u -o $ASM_DIR/$(echo $opt_flag | tr -d '-') $ASM_DIR/$(echo $opt_flag | tr -d '-')
+        # Measure asm function sizes
+        ASM_DIR=$RESULTS_REPO/asm-diff/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME/$(echo $OPT_FLAG | tr -d '-')
+        [ ! -d $ASM_DIR ] && mkdir -p $ASM_DIR
+        ASM_FILE=$ASM_DIR/sizes.txt
+        find $INSTALL_DIR -type f -exec file {} \; \
+        | grep -Ei "ELF" | cut -d':' -f1 | while read -r binary_file; do
+            nm --size-sort -t d "$binary_file" |
+            grep -E ' T | t ' | awk '{print $1, $3}' >> $ASM_FILE
+        done
+        sort -u -o $ASM_FILE $ASM_FILE
 
-            # Run tests with a single CPU core
-            OLD_NUM_CPU_CORES=$NUM_CPU_CORES
-            export NUM_CPU_CORES=1
+        # Run tests with a single CPU core
+        OLD_NUM_CPU_CORES=$NUM_CPU_CORES
+        export NUM_CPU_CORES=1
 
-            # Run the test
-            result_name=`echo $p | cut -d'/' -f2`"_"
-            echo -n $result_name | $PTS batch-run $p
+        # Run the test
+        result_name=`echo $p | cut -d'/' -f2`"_"
+        echo -n $result_name | $PTS batch-run $p
+    done
 
-            # Copy results
-            pushd $RESULTS_PATH
-            cp -r compile-time $RESULTS_REPO
-            cp -r object-size $RESULTS_REPO
-            cp -r memory-usage $RESULTS_REPO
-            cp -r asm-size $RESULTS_REPO
-            cp -r compiler-logs $RESULTS_REPO
-            for dir in test-results/*; do
-                mkdir -p $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d '-')
-                mv $dir/* $dir/$CONFIG_NAME/$(echo $opt_flag | tr -d -)
-            done
-            cp -r test-results $RESULTS_REPO
+    # TODO: compare both profiles asm diff
+    test_name=$(echo $p | cut -d'/' -f2)
+    echo "Comparing assembly for $test_name..."
 
-            rm -rf compile-time installed-tests object-size memory-usage asm-size test-results compiler-logs
-            popd
+    ASM_DIFF_DIR=$RESULTS_REPO/asm-diff/$test_name/$(echo $OPT_FLAG | tr -d '-')
+    [ ! -d $ASM_DIFF_DIR ] && mkdir -p $ASM_DIFF_DIR
 
-            pushd $RESULTS_REPO
-            find . -name "s,^.*" | xargs rm -rf
-            git add .
-            git commit --no-gpg-sign -m "$CONFIG_NAME($(echo $opt_flag | tr -d '-')): $p"
-            git push -f
-            popd
+    # Create two files for this test
+    diff_func_file="$ASM_DIFF_DIR/diff.txt"
+    all_func_file="$ASM_DIFF_DIR/all.txt"
+
+    # Define paths to installed binaries for both configurations
+    BASE_DIR=$RESULTS_PATH/installed-tests/$(basename $BASE_CONFIG .json)/$p
+    OTHER_DIR=$RESULTS_PATH/installed-tests/$(basename $OTHER_CONFIG .json)/$p
+
+    # Find all ELF files in base dir
+    find $BASE_DIR -type f -exec file {} \; | grep -E "ELF" | cut -d':' -f1 | while read -r base_file; do
+        rel_path=${base_file#$BASE_DIR/}
+        other_file=$OTHER_DIR/$rel_path
+
+        symbols=$(objdump -t "$base_file" | grep -E "F .text" | awk '{print $6}' | sort)
+
+        echo "$symbols" | while read -r func; do
+            base_asm=$(objdump -d --disassemble="$func" "$base_file" 2>/dev/null | sed '2d')
+            byte_asm=$(objdump -d --disassemble="$func" "$other_file" 2>/dev/null | sed '2d')
+            [ "$base_asm" != "$byte_asm" ] && echo "$func" >> $diff_func_file
+            echo "$func" >> $all_func_file
         done
     done
 
-    pushd $RESULTS_REPO
-    find . -name "s,^.*" | xargs rm -rf
+    # Remove duplicates
+    sort -u $diff_func_file -o $diff_func_file
+    sort -u $all_func_file -o $all_func_file
+
+    # Copy results
+    pushd $RESULTS_PATH
+    find test-results -name "composite.xml" | while read -r xml_file; do
+        target_dir="$RESULTS_REPO/$(dirname $xml_file)/$(echo $OPT_FLAG | tr -d '-')"
+        [ ! -d $target_dir ] && mkdir -p $target_dir
+        cp $xml_file "$target_dir/"
+    done
     popd
+
     # TODO: HARDCODED -O2
-    python3 results-to-csv.py $RESULTS_REPO $TEST_PROFILES_PATH "O2" -mp
+    python3 results-to-csv.py $RESULTS_REPO $TEST_PROFILES_PATH "O3" -mp
 
     # Write README.md
     echo "# $FORMATTED_DATE @ $(hostname)" > $RESULTS_REPO/README.md
@@ -215,30 +239,24 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     echo "## Compilation Time" >> $RESULTS_REPO/README.md
     echo "![Compilation Time](plots/compile-time.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
+    echo "## Runtime" >> $RESULTS_REPO/README.md
+    echo "![Runtime](plots/runtime.svg)" >> $RESULTS_REPO/README.md
+    echo "" >> $RESULTS_REPO/README.md
     echo "## Memory Usage" >> $RESULTS_REPO/README.md
     echo "![Memory Usage](plots/memory-usage.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
     echo "## Object Size" >> $RESULTS_REPO/README.md
     echo "![Object Size](plots/object-size.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
-    echo "## ASM Size" >> $RESULTS_REPO/README.md
-    echo "![ASM Size](plots/asm-size.svg)" >> $RESULTS_REPO/README.md
-    echo "" >> $RESULTS_REPO/README.md
-    echo "## Runtime" >> $RESULTS_REPO/README.md
-    echo "![Runtime](plots/runtime.svg)" >> $RESULTS_REPO/README.md
+    echo "## ASM Diff" >> $RESULTS_REPO/README.md
+    echo "![ASM Diff](plots/asm-diff.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
 
     pushd $RESULTS_REPO
-    git add -A
-    git commit --no-gpg-sign --amend --no-edit
+    find . -name "s,^.*" | xargs rm -rf
+    git add .
+    git commit --no-gpg-sign -m "$CONFIG_NAME($(echo $OPT_FLAG | tr -d '-')): $p"
     git push -f
     popd
 
 done
-
-rm -rf $RESULTS_PATH/installed-tests/*
-rm -rf $RESULTS_PATH/test-results/*
-rm -rf $RESULTS_PATH/object-size/*
-rm -rf $RESULTS_PATH/asm-size/*
-rm -rf $RESULTS_PATH/compile-time/*
-rm -rf $RESULTS_PATH/memory-usage/*
