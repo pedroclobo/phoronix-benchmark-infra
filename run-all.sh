@@ -2,7 +2,7 @@
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 [options] <base_config> <other_config> <results_repo> <profiles_file> <pts_base> <test_profiles_path> <toolchain_path> <results_path>"
+    echo "Usage: $0 [options] <base_config> <other_config> <results_repo> <profiles_file> <pts_base> <test_profiles_path> <toolchain_path> <install_path>"
     echo ""
     echo "Arguments:"
     echo "  <base_config>         JSON configuration"
@@ -12,7 +12,7 @@ usage() {
     echo "  <pts_base>            Path to Phoronix Test Suite"
     echo "  <test_profiles_path>  Path to test profiles"
     echo "  <toolchain_path>      Path to toolchain directory"
-    echo "  <results_path>        Path for storing results"
+    echo "  <install_path>        Path for installing tests"
     echo ""
     echo "Options:"
     echo "  -p, --prepare         Tweak environment to decrease result variance (needs sudo)"
@@ -56,7 +56,7 @@ PROFILES_FILE="$4"
 export PTS_BASE="$5"
 export TEST_PROFILES_PATH="$6"
 export TOOLCHAIN_PATH="$7"
-export RESULTS_PATH="$8"
+export INSTALL_PATH="$8"
 export PTS="$PTS_BASE/phoronix-test-suite"
 
 [ ! -f "$BASE_CONFIG" ] && echo "Base config file does not exist: $BASE_CONFIG" && exit 1
@@ -75,12 +75,14 @@ export PTS="$PTS_BASE/phoronix-test-suite"
 pushd $RESULTS_REPO
 DATE=$(date +%Y-%m-%d-%H-%M-%S)
 FORMATTED_DATE=$(date +"%d %B %Y - %H:%M")
-git checkout --orphan $DATE-$(hostname)
+git checkout --orphan $DATE-$(hostname | cut -d'.' -f1)
 git rm -rf .
 git clean -df
 popd
 
 export PTS_SILENT_MODE=TRUE
+export TEST_RESULTS_NAME=$(hostname | cut -d'.' -f1)
+
 # Generate phoronix user configuration
 batch_setup=$(
     # Save test results when in batch mode
@@ -100,17 +102,12 @@ batch_setup=$(
 )
 echo $batch_setup | $PTS batch-setup
 
-# Delete previously installed tests and results
-rm -rf $RESULTS_PATH/installed-tests/*
-rm -rf $RESULTS_PATH/test-results/*
-rm -rf $RESULTS_PATH/object-size/*
-rm -rf $RESULTS_PATH/compile-time/*
-rm -rf $RESULTS_PATH/memory-usage/*
-rm -rf $RESULTS_PATH/asm-size/*
-rm -rf $RESULTS_PATH/compiler-logs/*
+# Delete previously installed tests
+[ ! -d $INSTALL_PATH ] && mkdir $INSTALL_PATH
+rm -rf $INSTALL_PATH/installed-tests/*
 
-# Create directory for compile time, object size, memory usage and compiler logs
-[ ! -d $RESULTS_PATH ] && mkdir $RESULTS_PATH
+# Delete previous test results
+rm -rf ~/.phoronix-test-suite/test-results/$(hostname | cut -d'.' -f1)
 
 for p in $(grep -v '#' $PROFILES_FILE); do
     for c in $BASE_CONFIG $OTHER_CONFIG; do
@@ -131,7 +128,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         export TEST_RESULTS_IDENTIFIER=$CONFIG_NAME
 
         # Override PTS install directory
-        export PTS_TEST_INSTALL_ROOT_PATH=$RESULTS_PATH/installed-tests/$CONFIG_NAME/
+        export PTS_TEST_INSTALL_ROOT_PATH=$INSTALL_PATH/installed-tests/$CONFIG_NAME/
         [ ! -d $PTS_TEST_INSTALL_ROOT_PATH ] && mkdir -p $PTS_TEST_INSTALL_ROOT_PATH
         INSTALL_DIR=$PTS_TEST_INSTALL_ROOT_PATH"$p"
 
@@ -199,8 +196,8 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     all_func_file="$ASM_DIFF_DIR/all.txt"
 
     # Define paths to installed binaries for both configurations
-    BASE_DIR=$RESULTS_PATH/installed-tests/$(basename $BASE_CONFIG .json)/$p
-    OTHER_DIR=$RESULTS_PATH/installed-tests/$(basename $OTHER_CONFIG .json)/$p
+    BASE_DIR=$INSTALL_PATH/installed-tests/$(basename $BASE_CONFIG .json)/$p
+    OTHER_DIR=$INSTALL_PATH/installed-tests/$(basename $OTHER_CONFIG .json)/$p
 
     # Find all ELF files in base dir
     find $BASE_DIR -type f -exec file {} \; | grep -E "ELF" | cut -d':' -f1 | while read -r base_file; do
@@ -222,12 +219,11 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     sort -u $all_func_file -o $all_func_file
 
     # Copy results
-    pushd $RESULTS_PATH
-    find test-results -name "composite.xml" | while read -r xml_file; do
-        target_dir="$RESULTS_REPO/$(dirname $xml_file)/$(echo $OPT_FLAG | tr -d '-')"
-        [ ! -d $target_dir ] && mkdir -p $target_dir
-        cp $xml_file "$target_dir/"
-    done
+    pushd ~/.phoronix-test-suite
+    xml_file="test-results/$(hostname | cut -d'.' -f1)/composite.xml"
+    target_dir="$RESULTS_REPO/$(dirname $xml_file)/$(echo $OPT_FLAG | tr -d '-')"
+    [ ! -d $target_dir ] && mkdir -p $target_dir
+    cp $xml_file "$target_dir/"
     popd
 
     # TODO: HARDCODED -O2

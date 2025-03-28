@@ -59,6 +59,8 @@ class RuntimeResultsExtractor(ResultsExtractor):
             root = tree.getroot()
 
             for result in root.findall(".//Result"):
+                identifier = result.find("Identifier").text
+                identifier = identifier.replace("local/", "")
                 description = result.find("Description").text or "No description"
                 scale = result.find("Scale").text
                 proportion = result.find("Proportion").text
@@ -66,7 +68,7 @@ class RuntimeResultsExtractor(ResultsExtractor):
                     profile = entry.find("Identifier").text
                     value = entry.find("Value").text or float("nan")
                     self.results.append(
-                        (test, description, scale, proportion, profile, value)
+                        (identifier, description, scale, proportion, profile, value)
                     )
 
         self.results.sort(key=lambda x: (x[0], x[4], x[1]))
