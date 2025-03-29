@@ -640,11 +640,13 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 all_functions_path = os.path.join(
                     self.results_dir + "/asm-diff", test, FLAG, "all.txt"
                 )
+                if not os.path.exists(all_functions_path): continue
                 with open(all_functions_path, "r") as f:
                     self.all_functions[test] = sum(1 for _ in f)
                 diff_functions_path = os.path.join(
                     self.results_dir + "/asm-diff", test, FLAG, "diff.txt"
                 )
+                if not os.path.exists(diff_functions_path): continue
                 with open(diff_functions_path, "r") as f:
                     self.diff_functions[test] = sum(1 for _ in f)
 
@@ -781,7 +783,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
 
             # Add summary statistics - simplified
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
-            summary += f"\n$\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} functions"
+            summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions" if test in self.all_functions else ""
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
             summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 
