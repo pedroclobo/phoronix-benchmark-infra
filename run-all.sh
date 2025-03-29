@@ -202,41 +202,35 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     # Find all ELF files in base dir
     elf_files=$(find $BASE_DIR -type f -exec file {} \; | grep -E "ELF" | cut -d':' -f1)
 
-    # These tests take too long to compare asm, skip them
-    blacklist=("openssl")
-    if [[ ! " ${blacklist[@]} " =~ " $test_name " ]]; then
-        echo "$elf_files" | while read -r base_file; do
-            rel_path=${base_file#$BASE_DIR/}
-            other_file=$OTHER_DIR/$rel_path
+    # Run assembly comparison with timeout
+    timeout 10m bash -c "
+        find $BASE_DIR -type f -exec file {} \; | grep -E 'ELF' | cut -d':' -f1 | while read -r base_file; do
+            rel_path=\${base_file#$BASE_DIR/}
+            other_file=$OTHER_DIR/\$rel_path
+            [ ! -f \"\$other_file\" ] && continue
 
-            binary_name=$(basename "$base_file")
-            base_dump=$(mktemp)
-            other_dump=$(mktemp)
+            base_dump=\$(mktemp)
+            other_dump=\$(mktemp)
+            objdump -d \"\$base_file\" > \"\$base_dump\" 2>/dev/null
+            objdump -d \"\$other_file\" > \"\$other_dump\" 2>/dev/null
 
-            # Dump disassembly
-            objdump -d "$base_file" > "$base_dump" 2>/dev/null
-            objdump -d "$other_file" > "$other_dump" 2>/dev/null
-
-            # Extract function names only once
-            functions=$(grep -E "^[0-9a-f]+ <.*>:" "$base_dump" | sed -E 's/^[0-9a-f]+ <(.*)>:/\1/g' | sort)
+            functions=\$(grep -E '^[0-9a-f]+ <.*>:' \"\$base_dump\" | sed -E 's/^[0-9a-f]+ <(.*)>:/\\1/g' | sort)
 
             while read -r func; do
-                # Extract this function's assembly from both dumps
-                base_func=$(sed -n "/^[0-9a-f]\+ <$func>:/,/^[0-9a-f]\+ <.*>:/p" "$base_dump" | sed '$d')
-                other_func=$(sed -n "/^[0-9a-f]\+ <$func>:/,/^[0-9a-f]\+ <.*>:/p" "$other_dump" | sed '$d')
+                [ -z \"\$func\" ] || echo \"\$func\" | grep -q '[<>]' && continue
+                base_func=\$(sed -n \"/^[0-9a-f]\+ <\$func>:/,/^[0-9a-f]\+ <.*>:/p\" \"\$base_dump\" | sed '\$d')
+                other_func=\$(sed -n \"/^[0-9a-f]\+ <\$func>:/,/^[0-9a-f]\+ <.*>:/p\" \"\$other_dump\" | sed '\$d')
 
-                [ "$base_func" != "$other_func" ] && echo "$func" >> "$diff_func_file"
-                echo "$func" >> "$all_func_file"
-            done <<< "$functions"
+                echo \"\$func\" >> \"$all_func_file\"
+                [ \"\$base_func\" != \"\$other_func\" ] && [ -n \"\$base_func\" ] && [ -n \"\$other_func\" ] && echo \"\$func\" >> \"$diff_func_file\"
+            done <<< \"\$functions\"
 
-            # Clean up temp files
-            rm -f "$base_dump" "$other_dump"
+            rm -f \"\$base_dump\" \"\$other_dump\"
         done
 
-        # Remove duplicates
-        sort -u $diff_func_file -o $diff_func_file
-        sort -u $all_func_file -o $all_func_file
-    fi
+        sort -u \"$diff_func_file\" -o \"$diff_func_file\"
+        sort -u \"$all_func_file\" -o \"$all_func_file\"
+    " >/dev/null 2>&1 || true
 
     # Copy results
     pushd ~/.phoronix-test-suite
