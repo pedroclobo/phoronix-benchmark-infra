@@ -785,7 +785,10 @@ class AsmSizeResultsExtractor(ResultsExtractor):
 
             # Add summary statistics - simplified
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
-            summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions" if test in self.all_functions else ""
+            if test in self.diff_functions and test in self.all_functions:
+                summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
+            else:
+                summary += ""
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
             summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 
