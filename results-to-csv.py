@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import argparse
 import re
 from matplotlib.ticker import AutoMinorLocator
+from scipy import stats
 
 BACKGROUND = "#F6F8FA"
 BLACK = "#24292E"
@@ -198,13 +199,17 @@ class CompileTimeResultsExtractor(ResultsExtractor):
 
         for test in os.listdir(self.results_dir + "/compile-time"):
             for profile in os.listdir(self.results_dir + "/compile-time/" + test):
-                flag_dir = os.path.join(self.results_dir, "compile-time", test, profile, FLAG)
+                flag_dir = os.path.join(
+                    self.results_dir, "compile-time", test, profile, FLAG
+                )
                 times = [
                     int(line.split("\t")[1])
                     for f in os.listdir(flag_dir)
                     for line in open(os.path.join(flag_dir, f)).read().splitlines()
                 ]
-                self.results += [(test, profile, sum(times) / len(os.listdir(flag_dir)))]
+                self.results += [
+                    (test, profile, sum(times) / len(os.listdir(flag_dir)))
+                ]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
 
@@ -453,7 +458,9 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
                             if re.match(r"^\d+$", line.strip()):
                                 mem_usage += [int(line.strip())]
 
-                self.results += [(test, profile, max(mem_usage) / len(os.listdir(flag_dir)))]
+                self.results += [
+                    (test, profile, max(mem_usage) / len(os.listdir(flag_dir)))
+                ]
 
     def write_results(self, results_file):
         print(f"Writing memory usage results to {results_file}")
@@ -630,7 +637,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                     self.results_dir + "/asm-diff", test, profile, FLAG, "sizes.txt"
                 )
 
-                if (not os.path.exists(profile_path)): continue
+                if not os.path.exists(profile_path):
+                    continue
 
                 with open(profile_path, "r") as f:
                     for line in f:
@@ -642,13 +650,15 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 all_functions_path = os.path.join(
                     self.results_dir + "/asm-diff", test, FLAG, "all.txt"
                 )
-                if not os.path.exists(all_functions_path): continue
+                if not os.path.exists(all_functions_path):
+                    continue
                 with open(all_functions_path, "r") as f:
                     self.all_functions[test] = sum(1 for _ in f)
                 diff_functions_path = os.path.join(
                     self.results_dir + "/asm-diff", test, FLAG, "diff.txt"
                 )
-                if not os.path.exists(diff_functions_path): continue
+                if not os.path.exists(diff_functions_path):
+                    continue
                 with open(diff_functions_path, "r") as f:
                     self.diff_functions[test] = sum(1 for _ in f)
 
@@ -667,14 +677,18 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         pass
 
     def plot_results(self, results_file, plot_dir):
-        plot_file = f"{plot_dir}/asm-diff.svg"
-        print(f"Plotting ASM function size to {plot_file}")
+        plot_file_size = f"{plot_dir}/asm-size.svg"
+        plot_file_diff = f"{plot_dir}/asm-diff.svg"
+        print(f"Plotting ASM function size to {plot_file_size}")
+        print(f"Plotting ASM function size differences to {plot_file_diff}")
 
         # First pass: collect data
         test_data = {}
         tests = []
         global_min_size = float("inf")
         global_max_size = float("-inf")
+        global_min_diff = float("inf")
+        global_max_diff = float("-inf")
 
         for test in self.function_sizes:
             if (
@@ -694,6 +708,9 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             base_func_sizes = [base_sizes[func] for func in common_funcs]
             byte_func_sizes = [byte_sizes[func] for func in common_funcs]
 
+            # Calculate size differences
+            size_diffs = [byte_sizes[func] - base_sizes[func] for func in common_funcs]
+
             # Update global min/max for bin calculation
             global_min_size = min(
                 global_min_size, min(base_func_sizes), min(byte_func_sizes)
@@ -701,6 +718,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             global_max_size = max(
                 global_max_size, max(base_func_sizes), max(byte_func_sizes)
             )
+            global_min_diff = min(global_min_diff, min(size_diffs))
+            global_max_diff = max(global_max_diff, max(size_diffs))
 
             # Calculate total sizes
             base_total = sum(base_func_sizes)
@@ -708,7 +727,6 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             total_diff = byte_total - base_total
 
             # Find min/max differences for summary
-            size_diffs = [byte_sizes[func] - base_sizes[func] for func in common_funcs]
             min_diff = min(size_diffs)
             max_diff = max(size_diffs)
 
@@ -727,6 +745,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             test_data[test] = {
                 "base_sizes": base_func_sizes,
                 "byte_sizes": byte_func_sizes,
+                "size_diffs": size_diffs,
                 "base_total": base_total,
                 "byte_total": byte_total,
                 "total_diff": total_diff,
@@ -739,51 +758,85 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         # Alphabetically sort the tests
         tests.sort()
 
-        # Create a figure with one row per test
+        # Create figures for absolute sizes and differences
         n_tests = len(tests)
-        fig, axes = plt.subplots(n_tests, 1, figsize=(10, 3 * n_tests), sharex=True)
+        fig_size, axes_size = plt.subplots(
+            n_tests, 1, figsize=(10, 3 * n_tests), sharex=False
+        )
+        fig_diff, axes_diff = plt.subplots(
+            n_tests, 1, figsize=(10, 3 * n_tests), sharex=False
+        )
         if n_tests == 1:
-            axes = [axes]  # Handle case with only one test
-
-        # Use logarithmic bins since function sizes can vary widely
-        log_min = np.log10(max(1, global_min_size))
-        log_max = np.log10(global_max_size)
-        bins = np.logspace(log_min, log_max, 150)
+            axes_size = [axes_size]
+            axes_diff = [axes_diff]
 
         # Create histograms for each test
         for i, test in enumerate(tests):
-            ax = axes[i]
-            ax.set_facecolor(BACKGROUND)
+            ax_size = axes_size[i]
+            ax_diff = axes_diff[i]
+            ax_size.set_facecolor(BACKGROUND)
+            ax_diff.set_facecolor(BACKGROUND)
 
             data = test_data[test]
 
-            # Plot overlapping histograms with transparency
-            ax.hist(
+            # Calculate min and max size for this test
+            test_min_size = min(min(data["base_sizes"]), min(data["byte_sizes"]))
+            test_max_size = max(max(data["base_sizes"]), max(data["byte_sizes"]))
+            test_log_min = np.log10(max(1, test_min_size))
+            test_log_max = np.log10(test_max_size)
+            # Use 70 bins for better visibility
+            test_size_bins = np.logspace(test_log_min, test_log_max, 70)
+
+            # Plot overlapping histograms with transparency for absolute sizes
+            ax_size.hist(
                 data["base_sizes"],
-                bins=bins,
+                bins=test_size_bins,
                 alpha=0.5,
                 color=RED,
                 label="LLVM 19.1.0",
             )
-            ax.hist(
+            ax_size.hist(
                 data["byte_sizes"],
-                bins=bins,
+                bins=test_size_bins,
                 alpha=0.5,
                 color=BLUE,
                 label="Prototype",
             )
 
-            # Set log scale on both axes
-            ax.set_xscale("log")
-            ax.set_yscale("symlog", linthresh=3)  # Linear below 3, logarithmic above
+            # Set log scale on x-axis but linear scale on y-axis
+            ax_size.set_xscale("log")
+            ax_size.set_yscale("linear")
+
+            # Calculate max difference for this specific test
+            test_max_abs_diff = max(
+                abs(min(data["size_diffs"])), abs(max(data["size_diffs"]))
+            )
+            # Create bins specific to this test's range
+            test_diff_bins = np.linspace(-test_max_abs_diff, test_max_abs_diff, 151)
+
+            # Plot histogram of size differences
+            ax_diff.hist(
+                data["size_diffs"],
+                bins=test_diff_bins,
+                color=BLUE,
+                label="Size Difference",
+            )
+
+            # Set log scale for difference plot
+            ax_diff.set_yscale("log")
+
+            # Set x-axis limits for difference plot to be symmetric and specific to this test
+            ax_diff.set_xlim(-test_max_abs_diff * 1.1, test_max_abs_diff * 1.1)
 
             # Add test name
-            ax.set_ylabel(test, fontsize=12, rotation=45, ha="right", va="center")
+            ax_size.set_ylabel(test, fontsize=12, rotation=45, ha="right", va="center")
+            ax_diff.set_ylabel(test, fontsize=12, rotation=45, ha="right", va="center")
 
-            # Add legend
-            ax.legend(loc="upper right")
+            # Add legends
+            ax_size.legend(loc="upper right")
+            ax_diff.legend(loc="upper right")
 
-            # Add summary statistics - simplified
+            # Add summary statistics
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
             if test in self.diff_functions and test in self.all_functions:
                 summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
@@ -792,14 +845,26 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
             summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 
-            # Position text box in lower left corner
-            ax.text(
+            # Position text box in lower left corner for both plots
+            ax_size.text(
                 0.02,
-                1.05,  # Position near bottom instead of top
+                1.05,
                 summary,
-                transform=ax.transAxes,
+                transform=ax_size.transAxes,
                 ha="left",
-                va="bottom",  # Changed from "top" to "bottom"
+                va="bottom",
+                fontsize=9,
+                bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, pad=0.6),
+                multialignment="left",
+                usetex=False,
+            )
+            ax_diff.text(
+                0.02,
+                1.05,
+                summary,
+                transform=ax_diff.transAxes,
+                ha="left",
+                va="bottom",
                 fontsize=9,
                 bbox=dict(boxstyle="round", facecolor="white", alpha=0.9, pad=0.6),
                 multialignment="left",
@@ -807,7 +872,15 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             )
 
             # Grid
-            ax.grid(
+            ax_size.grid(
+                True,
+                which="both",
+                axis="both",
+                linestyle="dotted",
+                color="#8B949E",
+                alpha=0.7,
+            )
+            ax_diff.grid(
                 True,
                 which="both",
                 axis="both",
@@ -816,15 +889,25 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 alpha=0.7,
             )
 
-        # Common x-axis label
-        axes[-1].set_xlabel("Function Size (bytes)", fontsize=12, color=BLACK)
+            # Add vertical line at x=0 for difference plot
+            ax_diff.axvline(x=0, color="black", linestyle="--", alpha=0.5)
+
+        # Common x-axis labels
+        axes_size[-1].set_xlabel("Function Size (bytes)", fontsize=12, color=BLACK)
+        axes_diff[-1].set_xlabel("Size Difference (bytes)", fontsize=12, color=BLACK)
 
         # Adjust layout
+        plt.figure(fig_size.number)
+        plt.tight_layout()
+        plt.figure(fig_diff.number)
         plt.tight_layout()
 
-        # Save the combined figure
-        plt.savefig(plot_file)
-        plt.close(fig)
+        # Save the figures
+        plt.figure(fig_size.number)
+        plt.savefig(plot_file_size)
+        plt.figure(fig_diff.number)
+        plt.savefig(plot_file_diff)
+        plt.close("all")
 
 
 if __name__ == "__main__":
