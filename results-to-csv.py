@@ -68,8 +68,36 @@ class RuntimeResultsExtractor(ResultsExtractor):
                 for entry in result.findall(".//Data/Entry"):
                     profile = entry.find("Identifier").text
                     value = entry.find("Value").text or float("nan")
+
+                    # Calculate standard deviation from raw string
+                    std_dev = 0.0
+                    rawstring = entry.find("RawString").text
+                    raw_values = [float(val.strip()) for val in rawstring.split(":")]
+
+                    # Calculate mean
+                    mean_value = sum(raw_values) / len(raw_values) if raw_values else 0
+
+                    # Calculate standard deviation using the formula: σ = √(1/N * Σ(x_i - x̄)²)
+                    if raw_values:
+                        squared_diff_sum = sum(
+                            (x - mean_value) ** 2 for x in raw_values
+                        )
+                        std_dev = (squared_diff_sum / len(raw_values)) ** 0.5
+
+                    # Calculate RSD: RSD (%) = (σ / x̄) * 100
+                    rsd = (std_dev / mean_value * 100) if mean_value != 0 else 0
+
                     self.results.append(
-                        (identifier, description, scale, proportion, profile, value)
+                        (
+                            identifier,
+                            description,
+                            scale,
+                            proportion,
+                            profile,
+                            value,
+                            std_dev,
+                            rsd,
+                        )
                     )
 
         self.results.sort(key=lambda x: (x[0], x[4], x[1]))
@@ -77,10 +105,19 @@ class RuntimeResultsExtractor(ResultsExtractor):
     def write_results(self, results_file):
         print(f"Writing runtime results to {results_file}")
         with open(results_file, "w") as f:
-            f.write("Test;Description;Scale;Proportion;Profile;Value\n")
-            for test, description, scale, proportion, profile, value in self.results:
+            f.write("Test;Description;Scale;Proportion;Profile;Value;StdDev;RSD\n")
+            for (
+                test,
+                description,
+                scale,
+                proportion,
+                profile,
+                value,
+                std_dev,
+                rsd,
+            ) in self.results:
                 f.write(
-                    f"{test};{description};{scale};{proportion};{profile};{value}\n"
+                    f"{test};{description};{scale};{proportion};{profile};{value};{std_dev};{rsd}\n"
                 )
 
     def merge_results(self, results_file):
@@ -96,7 +133,18 @@ class RuntimeResultsExtractor(ResultsExtractor):
         plot_file = f"{plot_dir}/runtime.svg"
         print(f"Plotting runtime results to {plot_file}")
 
+        # Read the data once
         df = pd.read_csv(results_file, sep=";")
+
+        # Create dictionaries for standard deviation, RSD, and mean values by test and profile
+        std_dev_data = {}
+        rsd_data = {}
+        mean_data = {}
+        for _, row in df.iterrows():
+            key = (row["Test"], row["Profile"])
+            std_dev_data[key] = row["StdDev"]
+            rsd_data[key] = row["RSD"]
+            mean_data[key] = row["Value"]
 
         num_tests = len(df["Test"].unique())
         height = max(6, 0.5 * num_tests)
@@ -104,26 +152,26 @@ class RuntimeResultsExtractor(ResultsExtractor):
         ax.set_facecolor(BACKGROUND)
 
         # Pivot the data and sort by Test
-        df = df.pivot_table(
+        df_pivot = df.pivot_table(
             index=("Test", "Description", "Scale", "Proportion"),
             columns="Profile",
             values="Value",
         ).reset_index()
-        df.sort_values(by="Test", ascending=False, inplace=True)
+        df_pivot.sort_values(by="Test", ascending=False, inplace=True)
 
         df_percentage = pd.Series(
             np.where(
-                df["Proportion"] == "HIB",
-                (df["base"] - df["byte"]) / df["byte"] * 100,
-                (df["byte"] - df["base"]) / df["base"] * 100,
+                df_pivot["Proportion"] == "HIB",
+                (df_pivot["base"] - df_pivot["byte"]) / df_pivot["byte"] * 100,
+                (df_pivot["byte"] - df_pivot["base"]) / df_pivot["base"] * 100,
             ),
-            index=df.index,
+            index=df_pivot.index,
         )
 
-        df["Percentage"] = df_percentage
+        df_pivot["Percentage"] = df_percentage
 
         # Group by Test and calculate the average percentage regression
-        avg_percentage = df.groupby("Test")["Percentage"].mean().reset_index()
+        avg_percentage = df_pivot.groupby("Test")["Percentage"].mean().reset_index()
         avg_percentage.set_index("Test", inplace=True)
         avg_percentage.sort_values(by="Test", inplace=True, ascending=False)
         avg_percentage["Percentage"] = avg_percentage["Percentage"].astype(float)
@@ -138,26 +186,48 @@ class RuntimeResultsExtractor(ResultsExtractor):
         min_percentage = avg_percentage.min().min()
         max_percentage = avg_percentage.max().max()
 
-        ax.set_xlim(min(-2, min_percentage * 1.28), max(2, max_percentage * 1.28))
+        ax.set_xlim(min(-2, min_percentage * 2), max(2, max_percentage * 2))
 
         avg_percentage["Percentage"].plot(kind="barh", ax=ax, color=colors, width=0.8)
         for container in ax.containers:
             for i, bar in enumerate(container.patches):
                 percentage = avg_percentage.iloc[i]["Percentage"]
-                change_text = f"{percentage:.2f}%"
+                change_text = f"{percentage:.2f}"
                 rounded_percentage = round(percentage, 2)
                 x_min, x_max = ax.get_xlim()
                 bar.set_edgecolor("black")
                 bar.set_linewidth(1)
+
+                # Get the test name for this bar
+                test_name = avg_percentage.index[i]
+
+                # Get RSD values for this test
+                base_rsd = rsd_data.get((test_name, "base"), 0)
+                byte_rsd = rsd_data.get((test_name, "byte"), 0)
+
+                # Get the maximum RSD
+                max_rsd = max(base_rsd, byte_rsd)
+
+                # Add just the RSD percentage to the annotation
+                rsd_text = f" ± {max_rsd:.2f}%"
+
+                # Calculate text position for consistent alignment
+                # For positive percentages, place text to the right of the bar
+                # For negative percentages, place text to the left of the bar
+                if percentage > 0:
+                    # For positive values, position text after the bar
+                    text_x = percentage + 0.02 * (x_max - x_min)
+                    text_ha = "left"  # Left-align text
+                else:
+                    # For negative values, position text before the bar
+                    text_x = percentage - 0.02 * (x_max - x_min)
+                    text_ha = "right"  # Right-align text
+
                 ax.text(
-                    (
-                        percentage + 0.05 * (x_max - x_min)
-                        if percentage > 0
-                        else percentage - 0.05 * (x_max - x_min)
-                    ),
+                    text_x,
                     i - 0.1,
-                    change_text,
-                    ha="center",
+                    change_text + rsd_text,
+                    ha=text_ha,  # Use the calculated alignment
                     color=(
                         BRIGHTRED
                         if rounded_percentage > 0
@@ -182,8 +252,8 @@ class RuntimeResultsExtractor(ResultsExtractor):
         )
 
         ax.axvline(x=0, color="black", linestyle="dotted", linewidth=1)
-        ax.axvline(x=1, color="black", linestyle="--", linewidth=2, alpha=0.5)
-        ax.axvline(x=-1, color="black", linestyle="--", linewidth=2, alpha=0.5)
+        ax.axvline(x=1, color="black", linestyle="--", linewidth=1, alpha=0.2)
+        ax.axvline(x=-1, color="black", linestyle="--", linewidth=1, alpha=0.2)
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.tick_params(which="minor", length=4, color="#8B949E")
         plt.yticks(rotation=45, ha="right", fontsize=11, color="#24292F")
