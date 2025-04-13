@@ -258,6 +258,9 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     echo "## Object Size" >> $RESULTS_REPO/README.md
     echo "![Object Size](plots/object-size.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
+    echo "## ASM Size" >> $RESULTS_REPO/README.md
+    echo "![ASM Size](plots/asm-size.svg)" >> $RESULTS_REPO/README.md
+    echo "" >> $RESULTS_REPO/README.md
     echo "## ASM Diff" >> $RESULTS_REPO/README.md
     echo "![ASM Diff](plots/asm-diff.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
