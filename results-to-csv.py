@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 import argparse
 import re
 from matplotlib.ticker import AutoMinorLocator
-from scipy import stats
 
 BACKGROUND = "#F6F8FA"
 BLACK = "#24292E"
@@ -205,11 +204,11 @@ class RuntimeResultsExtractor(ResultsExtractor):
                 base_rsd = rsd_data.get((test_name, "base"), 0)
                 byte_rsd = rsd_data.get((test_name, "byte"), 0)
 
-                # Get the maximum RSD
-                max_rsd = max(base_rsd, byte_rsd)
+                # Calculate the sum of RSD values instead of taking the maximum
+                total_rsd = base_rsd + byte_rsd
 
-                # Add just the RSD percentage to the annotation
-                rsd_text = f" ± {max_rsd:.2f}%"
+                # Add the sum of RSD percentages to the annotation
+                rsd_text = f" ± {total_rsd:.2f}%"
 
                 # Calculate text position for consistent alignment
                 # For positive percentages, place text to the right of the bar
