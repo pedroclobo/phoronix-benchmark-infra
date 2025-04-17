@@ -696,6 +696,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         self.function_sizes = {}
         self.all_functions = {}
         self.diff_functions = {}
+        self.diff_loose_functions = {}  # Add new dictionary for loose diff
 
         for test in os.listdir(self.results_dir + "/asm-diff"):
             self.function_sizes[test] = {}
@@ -730,6 +731,14 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                     continue
                 with open(diff_functions_path, "r") as f:
                     self.diff_functions[test] = sum(1 for _ in f)
+                # Add reading of loose diff file
+                diff_loose_path = os.path.join(
+                    self.results_dir + "/asm-diff", test, FLAG, "diff_loose.txt"
+                )
+                if not os.path.exists(diff_loose_path):
+                    continue
+                with open(diff_loose_path, "r") as f:
+                    self.diff_loose_functions[test] = sum(1 for _ in f)
 
         self.results.sort(key=lambda x: (x[0], x[1], x[3], x[2]))
 
@@ -909,6 +918,8 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
             if test in self.diff_functions and test in self.all_functions:
                 summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
+                if test in self.diff_loose_functions:
+                    summary += f" | $\\mathbf{{Struct Changed:}}$  {self.diff_loose_functions[test]} / {self.all_functions[test]} ({self.diff_loose_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
             else:
                 summary += ""
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"

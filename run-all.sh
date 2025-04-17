@@ -194,6 +194,8 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     # Create two files for this test
     diff_func_file="$ASM_DIFF_DIR/diff.txt"
     all_func_file="$ASM_DIFF_DIR/all.txt"
+    # Add new file for less strict comparison
+    diff_loose_file="$ASM_DIFF_DIR/diff_loose.txt"
 
     # Define paths to installed binaries for both configurations
     BASE_DIR=$INSTALL_PATH/installed-tests/$(basename $BASE_CONFIG .json)/$p
@@ -209,27 +211,99 @@ for p in $(grep -v '#' $PROFILES_FILE); do
             other_file=$OTHER_DIR/\$rel_path
             [ ! -f \"\$other_file\" ] && continue
 
+            # Create temporary files for objdump output
             base_dump=\$(mktemp)
             other_dump=\$(mktemp)
-            objdump -d \"\$base_file\" > \"\$base_dump\" 2>/dev/null
-            objdump -d \"\$other_file\" > \"\$other_dump\" 2>/dev/null
 
-            functions=\$(grep -E '^[0-9a-f]+ <.*>:' \"\$base_dump\" | sed -E 's/^[0-9a-f]+ <(.*)>:/\\1/g' | sort)
+            # Generate assembly dumps with Intel syntax and no addresses
+            objdump -d -Mintel --no-addresses --no-show-raw-insn \"\$base_file\" > \"\$base_dump\" 2>/dev/null
+            objdump -d -Mintel --no-addresses --no-show-raw-insn \"\$other_file\" > \"\$other_dump\" 2>/dev/null
+
+            # Create binary-specific output files
+            binary_diff_file=\"${diff_func_file}.\$(basename \"\$base_file\")\"
+            binary_all_file=\"${all_func_file}.\$(basename \"\$base_file\")\"
+            binary_loose_file=\"${diff_loose_file}.\$(basename \"\$base_file\")\"
+
+            # Create empty files
+            rm -f \"\$binary_diff_file\" \"\$binary_all_file\" \"\$binary_loose_file\"
+            touch \"\$binary_diff_file\" \"\$binary_all_file\" \"\$binary_loose_file\"
+
+            # Get all functions from both binaries
+            functions=\$(grep -E '^<.*>:' \"\$base_dump\" | sed -E 's/^<(.*)>:/\\1/g' | sort -u)
 
             while read -r func; do
+                # Skip empty lines and special characters
                 [ -z \"\$func\" ] || echo \"\$func\" | grep -q '[<>]' && continue
-                base_func=\$(sed -n \"/^[0-9a-f]\+ <\$func>:/,/^[0-9a-f]\+ <.*>:/p\" \"\$base_dump\" | sed '\$d')
-                other_func=\$(sed -n \"/^[0-9a-f]\+ <\$func>:/,/^[0-9a-f]\+ <.*>:/p\" \"\$other_dump\" | sed '\$d')
 
-                echo \"\$func\" >> \"$all_func_file\"
-                [ \"\$base_func\" != \"\$other_func\" ] && [ -n \"\$base_func\" ] && [ -n \"\$other_func\" ] && echo \"\$func\" >> \"$diff_func_file\"
+                # Extract function contents
+                base_func=\$(sed -n \"/^<\$func>:/,/^<.*>:/p\" \"\$base_dump\" | sed '\$d')
+                other_func=\$(sed -n \"/^<\$func>:/,/^<.*>:/p\" \"\$other_dump\" | sed '\$d')
+
+                # Add to all functions list
+                echo \"\$func\" >> \"\$binary_all_file\"
+
+                # Skip if function doesn't exist in both binaries
+                [ -z \"\$base_func\" ] || [ -z \"\$other_func\" ] && continue
+
+                # === STRICT COMPARISON ===
+                # Compare raw function contents (exact match check)
+                if [ \"\$base_func\" != \"\$other_func\" ]; then
+                    echo \"\$func\" >> \"\$binary_diff_file\"
+
+                    # === SIMPLIFIED LOOSE COMPARISON ===
+                    # Get just the instruction content without function headers
+                    base_content=\$(echo \"\$base_func\" | grep -v '^<.*>:')
+                    other_content=\$(echo \"\$other_func\" | grep -v '^<.*>:')
+
+                    # Clean the content for better comparison (simpler now without addresses)
+                    base_clean=\$(echo \"\$base_content\" | sed 's/^[[:space:]]*//' | grep -v '^$')
+                    other_clean=\$(echo \"\$other_content\" | sed 's/^[[:space:]]*//' | grep -v '^$')
+
+                    # Create temporary files for the cleaned content
+                    base_temp=\$(mktemp)
+                    other_temp=\$(mktemp)
+                    echo \"\$base_clean\" > \"\$base_temp\"
+                    echo \"\$other_clean\" > \"\$other_temp\"
+
+                    # Simple check: if line counts differ, there must be added/removed lines
+                    if [ \"\$(wc -l < \"\$base_temp\")\" -ne \"\$(wc -l < \"\$other_temp\")\" ]; then
+                        echo \"\$func\" >> \"\$binary_loose_file\"
+                    else
+                        # Use a simplified approach to check for added/removed lines
+                        # Create a line-by-line diff
+                        diff_result=\$(diff \"\$base_temp\" \"\$other_temp\" || true)
+
+                        # Check for isolated additions or removals
+                        if echo \"\$diff_result\" | grep -q -E '^(<|>)'; then
+                            # Count < and > lines
+                            removed=\$(echo \"\$diff_result\" | grep -c '^<')
+                            added=\$(echo \"\$diff_result\" | grep -c '^>')
+
+                            # If the counts are different, there are true additions or removals
+                            if [ \"\$removed\" -ne \"\$added\" ]; then
+                                echo \"\$func\" >> \"\$binary_loose_file\"
+                            fi
+                        fi
+                    fi
+
+                    # Clean up temporary files
+                    rm -f \"\$base_temp\" \"\$other_temp\"
+                fi
             done <<< \"\$functions\"
 
-            rm -f \"\$base_dump\" \"\$other_dump\"
+            # Append binary-specific results to main files
+            cat \"\$binary_diff_file\" >> \"$diff_func_file\" 2>/dev/null || true
+            cat \"\$binary_all_file\" >> \"$all_func_file\" 2>/dev/null || true
+            cat \"\$binary_loose_file\" >> \"$diff_loose_file\" 2>/dev/null || true
+
+            # Clean up temporary files
+            rm -f \"\$base_dump\" \"\$other_dump\" \"\$binary_diff_file\" \"\$binary_all_file\" \"\$binary_loose_file\"
         done
 
+        # Sort and deduplicate results
         sort -u \"$diff_func_file\" -o \"$diff_func_file\"
         sort -u \"$all_func_file\" -o \"$all_func_file\"
+        sort -u \"$diff_loose_file\" -o \"$diff_loose_file\"
     " >/dev/null 2>&1 || true
 
     # Copy results
