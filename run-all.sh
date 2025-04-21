@@ -204,6 +204,10 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     # Find all ELF files in base dir
     elf_files=$(find $BASE_DIR -type f -exec file {} \; | grep -E "ELF" | cut -d':' -f1)
 
+    # Define timeout status file path in asm-diff directory
+    TIMEOUT_FILE=$RESULTS_REPO/asm-diff/$test_name/$(echo $OPT_FLAG | tr -d '-')/timeout.txt
+    touch $TIMEOUT_FILE
+
     # Run assembly comparison with timeout
     timeout 10m bash -c "
         find $BASE_DIR -type f -exec file {} \; | grep -E 'ELF' | cut -d':' -f1 | while read -r base_file; do
@@ -304,7 +308,10 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         sort -u \"$diff_func_file\" -o \"$diff_func_file\"
         sort -u \"$all_func_file\" -o \"$all_func_file\"
         sort -u \"$diff_loose_file\" -o \"$diff_loose_file\"
-    " >/dev/null 2>&1 || true
+    " >/dev/null 2>&1
+
+    # Check if timeout occurred (exit code 124)
+    [ $? -eq 124 ] && echo "y" > $TIMEOUT_FILE || echo "n" > $TIMEOUT_FILE
 
     # Copy results
     pushd ~/.phoronix-test-suite

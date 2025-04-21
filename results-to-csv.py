@@ -754,6 +754,13 @@ class AsmSizeResultsExtractor(ResultsExtractor):
         # Not applicable for this analysis
         pass
 
+    def get_timeout_status(self, test):
+        timeout_file = os.path.join(self.results_dir, 'asm-diff', test, FLAG, 'timeout.txt')
+        if os.path.exists(timeout_file):
+            with open(timeout_file, 'r') as f:
+                return f.read().strip() == 'y'
+        return False
+
     def plot_results(self, results_file, plot_dir):
         plot_file_size = f"{plot_dir}/asm-size.svg"
         plot_file_diff = f"{plot_dir}/asm-diff.svg"
@@ -917,11 +924,12 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             # Add summary statistics
             summary = f"$\\mathbf{{Net:}}$  {data['total_diff']:+,d} bytes"
             if test in self.diff_functions and test in self.all_functions:
-                summary += f" | $\\mathbf{{Changed:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
+                summary += f" | $\\mathbf{{Changed\\ ASM:}}$  {self.diff_functions[test]} / {self.all_functions[test]} ({self.diff_functions[test] / self.all_functions[test] * 100:.2f}%)"
                 if test in self.diff_loose_functions:
-                    summary += f" | $\\mathbf{{Struct Changed:}}$  {self.diff_loose_functions[test]} / {self.all_functions[test]} ({self.diff_loose_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
-            else:
-                summary += ""
+                    summary += f" | {self.diff_loose_functions[test]} / {self.all_functions[test]} ({self.diff_loose_functions[test] / self.all_functions[test] * 100:.2f}%) functions"
+                if self.get_timeout_status(test):
+                    summary += " (timeout)"
+
             summary += f"\n$\\mathbf{{Min:}}$  {data['min_diff']:,d} @ {data['min_func'] if len(data['min_func']) <= 90 else data['min_func'][:90] + '...'}"
             summary += f"\n$\\mathbf{{Max:}}$  {data['max_diff']:,d} @ {data['max_func'] if len(data['max_func']) <= 90 else data['max_func'][:90] + '...'}"
 
