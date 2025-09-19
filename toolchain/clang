@@ -37,14 +37,14 @@ done
 # Replace optimization levels with $OPT_FLAG
 args=$(echo "$args" | sed -E "s/-O[0-3sz]/$OPT_FLAG/g")
 
-start_time=$(date +%s%3N)
-
 # Measure peak memory usage
 MEM_DIR=$RESULTS_REPO/memory-usage/${basename}/${CONFIG_NAME}/$(echo $OPT_FLAG | tr -d -)
 [ ! -d $MEM_DIR ] && mkdir -p $MEM_DIR
 MEM_FILE=$MEM_DIR/$INSTALL_ROUND.txt
+start_time=$(date +%s%3N)
 /usr/bin/time -pf '%M' -o $MEM_FILE -a ${LLVM_PATH}/clang $args ${FLAGS}
 exit_code=$?
+end_time=$(date +%s%3N)
 
 # Log inline remarks
 INLINE_REMARKS_DIR=$RESULTS_REPO/inline-remarks/${basename}/${CONFIG_NAME}
@@ -67,7 +67,6 @@ COMPILER_LOG_FILE=$COMPILER_LOG_DIR/$(echo $OPT_FLAG | tr -d -).txt
 echo "${LLVM_PATH}/clang $args ${FLAGS}" >> $COMPILER_LOG_FILE
 
 # Measure elapsed time (compile time)
-end_time=$(date +%s%3N)
 elapsed_time=$((end_time - start_time))
 TIME_DIR=$RESULTS_REPO/compile-time/${basename}/${CONFIG_NAME}/$(echo $OPT_FLAG | tr -d -)
 [ ! -d $TIME_DIR ] && mkdir -p $TIME_DIR
