@@ -364,6 +364,9 @@ for p in $(grep -v '#' $PROFILES_FILE); do
     # Write README.md
     echo "# $FORMATTED_DATE @ $(hostname)" > $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
+    [ $follow_inline_remarks -eq 1 ] && checkbox="[x]" || checkbox="[ ]"
+    echo "Follow inline remarks: $checkbox" >> "$RESULTS_REPO/README.md"
+    echo "" >> $RESULTS_REPO/README.md
     echo "## Compilation Time" >> $RESULTS_REPO/README.md
     echo "![Compilation Time](plots/compile-time.svg)" >> $RESULTS_REPO/README.md
     echo "" >> $RESULTS_REPO/README.md
