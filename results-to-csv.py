@@ -376,7 +376,7 @@ class CompileTimeResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            labels=["Prototype", "LLVM 19.1.0"],
+            labels=["Prototype", "Baseline"],
             loc="upper right",
             fontsize=12,
             frameon=True,
@@ -500,7 +500,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            labels=["Prototype", "LLVM 19.1.0"],
+            labels=["Prototype", "Baseline"],
             loc="upper right",
             fontsize=12,
             frameon=True,
@@ -625,7 +625,7 @@ class MemoryUsageResultsExtractor(ResultsExtractor):
             )
 
         ax.legend(
-            labels=["Prototype", "LLVM 19.1.0"],
+            labels=["Prototype", "Baseline"],
             loc="upper right",
             fontsize=12,
             frameon=True,
@@ -878,7 +878,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 bins=test_size_bins,
                 alpha=0.5,
                 color=RED,
-                label="LLVM 19.1.0",
+                label="Baseline",
             )
             ax_size.hist(
                 data["byte_sizes"],
