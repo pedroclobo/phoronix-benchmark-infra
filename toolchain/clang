@@ -46,6 +46,20 @@ MEM_FILE=$MEM_DIR/$INSTALL_ROUND.txt
 /usr/bin/time -pf '%M' -o $MEM_FILE -a ${LLVM_PATH}/clang $args ${FLAGS}
 exit_code=$?
 
+# Log inline remarks
+INLINE_REMARKS_DIR=$RESULTS_REPO/inline-remarks/${basename}/${CONFIG_NAME}
+[ ! -d $INLINE_REMARKS_DIR ] && mkdir -p $INLINE_REMARKS_DIR
+INLINE_REMARKS_PROCESS_FILE=$INLINE_REMARKS_DIR/$(echo $OPT_FLAG | tr -d -)_$$.txt
+INLINE_REMARKS_FILE=$INLINE_REMARKS_DIR/$(echo $OPT_FLAG | tr -d -).txt
+INLINE_REMARKS_LOCK=$INLINE_REMARKS_DIR/$(echo $OPT_FLAG | tr -d -).lock
+${LLVM_PATH}/clang $args ${FLAGS} -Rpass=inline 2>> $INLINE_REMARKS_PROCESS_FILE
+sed -i "/remark:/!d" $INLINE_REMARKS_PROCESS_FILE
+(
+    flock -x 200
+    cat $INLINE_REMARKS_PROCESS_FILE >> "$INLINE_REMARKS_FILE"
+    rm -f $INLINE_REMARKS_PROCESS_FILE
+) 200>"$INLINE_REMARKS_LOCK"
+
 # Log compiler invocations
 COMPILER_LOG_DIR=$RESULTS_REPO/compiler-logs/${basename}/${CONFIG_NAME}
 [ ! -d $COMPILER_LOG_DIR ] && mkdir -p $COMPILER_LOG_DIR
