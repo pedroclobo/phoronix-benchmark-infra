@@ -189,11 +189,7 @@ for p in $(grep -v '#' $PROFILES_FILE); do
         SIZE_DIR=$RESULTS_REPO/object-size/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME
         [ ! -d $SIZE_DIR ] && mkdir -p $SIZE_DIR
         SIZE_FILE=$SIZE_DIR/$(echo $OPT_FLAG | tr -d '-').txt
-        find $INSTALL_DIR -type f -exec file {} \; |
-          grep -Ei "ELF" | cut -d':' -f1 | while read -r file; do
-            size=$(du -b "$file" | cut -f1)
-            echo -e "$size\t$file"
-        done > $SIZE_FILE
+        find $INSTALL_DIR \( -name "*.o" -o -name "scimark2" -o -name "speedtest1" \) -exec size {} + > $SIZE_FILE
 
         # Measure asm function sizes
         ASM_DIR=$RESULTS_REPO/asm-diff/$(echo $p | cut -d'/' -f2)/$CONFIG_NAME/$(echo $OPT_FLAG | tr -d '-')

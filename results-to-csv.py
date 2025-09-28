@@ -399,9 +399,10 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
                 )
                 with open(profile_path, "r") as f:
                     sum = 0
-                    for line in f:
-                        size, _ = line.split("\t")
-                        sum += int(size)
+                    for i, line in enumerate(f):
+                        if i == 0: continue
+                        text, _, _, _, _, _ = line.split("\t")
+                        sum += int(text)
                     self.results += [(test, profile, sum)]
 
         self.results.sort(key=lambda x: (x[0], x[1]))
