@@ -400,7 +400,7 @@ class ObjectSizeResultsExtractor(ResultsExtractor):
                 with open(profile_path, "r") as f:
                     sum = 0
                     for i, line in enumerate(f):
-                        if i == 0: continue
+                        if i == 0 or line.startswith("   text"): continue
                         text, _, _, _, _, _ = line.split("\t")
                         sum += int(text)
                     self.results += [(test, profile, sum)]
