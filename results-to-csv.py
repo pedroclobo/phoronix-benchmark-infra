@@ -90,7 +90,7 @@ def plot_absolute(df, ax, xlabel, styles, log=False, yticks=True):
                     0.05 * (x_max - x_min),
                     max(base_value, other_value) + 0.02 * (x_max - x_min),
                 ),
-                i + 0.18 + 0.45 * j,
+                i + 1 - 0.025,
                 change_text,
                 ha="left",
                 color=(
@@ -578,6 +578,8 @@ class AliveResultsExtractor(ResultsExtractor):
                     index=df.index,
                 )
             df = df.drop(columns=["base"])
+        else:
+            df[profile_names] = df[profile_names] / (60 * 60)
 
         df.sort_values(by="Test", ascending=False, inplace=True)
         if relative:
@@ -867,7 +869,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
             ax_size.hist(
                 profile_data[ref_profile]["sizes"],
                 bins=test_size_bins,
-                # alpha=0.5,
+                alpha=0.6,
                 color=profile_colors[ref_profile],
                 label=ref_profile.capitalize(),
             )
@@ -877,7 +879,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 ax_size.hist(
                     profile_data[profile]["sizes"],
                     bins=test_size_bins,
-                    # alpha=0.5,
+                    alpha=0.6,
                     color=profile_colors[profile],
                     label=profile.capitalize(),
                 )
@@ -899,7 +901,7 @@ class AsmSizeResultsExtractor(ResultsExtractor):
                 ax_diff.hist(
                     data["all_size_diffs"][profile],
                     bins=test_diff_bins,
-                    # alpha=0.6,
+                    alpha=0.6,
                     color=profile_colors[profile],
                     label=f"{profile} - {ref_profile}",
                 )
@@ -1008,7 +1010,7 @@ if __name__ == "__main__":
     memory_usage_df = pd.read_csv(results_dir + "/csv/memory-usage.csv", sep=";")
     object_size_df = pd.read_csv(results_dir + "/csv/object-size.csv", sep=";")
     instruction_count_df = pd.read_csv(results_dir + "/csv/instruction-count.csv", sep=";")
-    # alive_df = pd.read_csv(results_dir + "/csv/alive.csv", sep=";")
+    alive_df = pd.read_csv(results_dir + "/csv/alive.csv", sep=";")
 
     # compile_time_df = compile_time.merge_results(COMPILE_TIME_RESULTS_FILE)
     # runtime_df = runtime.merge_results(RUNTIME_RESULTS_FILE)
@@ -1032,45 +1034,39 @@ if __name__ == "__main__":
     # ax4 = fig.add_subplot(gs[1, 1:4])   # 3 columns, centered (starts at 1)
     # ax5 = fig.add_subplot(gs[1, 5:8])   # 3 columns, centered (starts at 5)
 
-    fig, _ = plt.subplots(figsize=(12, 10))
-    gs = GridSpec(2, 12, figure=fig, height_ratios=[1, 1],
-      hspace=0.15,   # Space between rows
-      wspace=0.1 ,  # Space between columns
-      left=0.08,    # Left margin
-      right=0.98,   # Right margin
-      top=0.94,     # Top margin
-      bottom=0.05   # Bottom margin
-    )
-    ax1 = fig.add_subplot(gs[0, 0:4])
-    ax2 = fig.add_subplot(gs[0, 4:8])
-    ax3 = fig.add_subplot(gs[0, 8:12])
-    ax4 = fig.add_subplot(gs[1, 2:6])
-    ax5 = fig.add_subplot(gs[1, 6:10])
+    # fig, _ = plt.subplots(figsize=(12, 10))
+    fig, axs = plt.subplots(figsize=(8, 2))
+    # gs = GridSpec(2, 12, figure=fig, height_ratios=[1, 1],
+    #   hspace=0.15,   # Space between rows
+    #   wspace=0.1 ,  # Space between columns
+    #   left=0.08,    # Left margin
+    #   right=0.98,   # Right margin
+    #   top=0.94,     # Top margin
+    #   bottom=0.05   # Bottom margin
+    # )
+    # ax1 = fig.add_subplot(gs[0, 0:4])
+    # ax2 = fig.add_subplot(gs[0, 4:8])
+    # ax3 = fig.add_subplot(gs[0, 8:12])
+    # ax4 = fig.add_subplot(gs[1, 2:6])
+    # ax5 = fig.add_subplot(gs[1, 6:10])
 
     styles = [
         {"name": "base", "color": "#E69F00", "hatch": None},
-        {"name": "byte-noopt", "color": "#CC3311", "hatch": None},
+        # {"name": "byte-noopt", "color": "#CC3311", "hatch": None},
         {"name": "byte", "color": "#0077BB", "hatch": None},
-        {"name": "byte-rust", "color": "#EE7733", "hatch": None},
-        # {"name": "freeze", "color": "#009988", "hatch": None},
-        # {"name": "base",       "color": "#1B9E77", "hatch": None},  # teal
-        # {"name": "byte-noopt", "color": "#D95F02", "hatch": None},  # orange
-        # {"name": "byte",       "color": "#7570B3", "hatch": None},  # indigo
-        # {"name": "byte-rust",  "color": "#1F78B4", "hatch": None},  # strong blue
-        # {"name": "base",       "color": "#66A182", "hatch": "//"},  # soft green-teal
-        # {"name": "byte-noopt", "color": "#E7862F", "hatch": "//"},  # amber-orange
-        # {"name": "byte",       "color": "#6B7BB0", "hatch": "//"},  # muted indigo
-        # {"name": "byte-rust",  "color": "#3A89C9", "hatch": "//"},  # clean blue
+        # {"name": "byte-rust", "color": "#EE7733", "hatch": None},
+        # # {"name": "freeze", "color": "#009988", "hatch": None},
+        # {"name": "byte-rust", "color": "#009988", "hatch": None},
     ]
 
-    relative=True
-    compile_time.plot_results(compile_time_df, ax1, styles, relative=relative, yticks=True)
-    runtime.plot_results(runtime_df, ax2, styles, yticks=False)
-    memory_usage.plot_results(memory_usage_df, ax3, styles, relative=relative, yticks=False)
-    object_size.plot_results(object_size_df, ax4, styles, relative=relative, yticks=True)
-    instruction_count.plot_results(instruction_count_df, ax5, styles, relative=relative, yticks=False)
-    # alive.plot_results(alive_df, axs, styles, relative=relative, yticks=True)
-    asm_size.plot_results(ASM_SIZE_RESULTS_FILE, PLOT_PATH, styles)
+    relative=False
+    # compile_time.plot_results(compile_time_df, ax1, styles, relative=relative, yticks=True)
+    # runtime.plot_results(runtime_df, ax2, styles, yticks=False)
+    # memory_usage.plot_results(memory_usage_df, ax3, styles, relative=relative, yticks=False)
+    # object_size.plot_results(object_size_df, ax4, styles, relative=relative, yticks=True)
+    # instruction_count.plot_results(instruction_count_df, ax5, styles, relative=relative, yticks=False)
+    alive.plot_results(alive_df, axs, styles, relative=relative, yticks=True)
+    # asm_size.plot_results(ASM_SIZE_RESULTS_FILE, PLOT_PATH, styles)
 
     patches = []
     for style in styles:
@@ -1113,18 +1109,20 @@ if __name__ == "__main__":
         bbox_to_anchor=(0.5, 1.0)
     )
 
-    for ax in [ax1, ax2, ax3, ax4, ax5]:
-        if ax.get_legend():
-            ax.get_legend().remove()
-
-    for ax in fig.axes:
-        if ax not in [ax1, ax2, ax3, ax4, ax5]:
-            fig.delaxes(ax)
-    # for ax in axs.flat:
+    # for ax in [ax1, ax2, ax3, ax4, ax5]:
     #     if ax.get_legend():
     #         ax.get_legend().remove()
+    #
+    # for ax in fig.axes:
+    #     if ax not in [ax1, ax2, ax3, ax4, ax5]:
+    #         fig.delaxes(ax)
+    # for ax in axs.flat:
+        # if ax.get_legend():
+        #     ax.get_legend().remove()
 
-    plt.tight_layout(rect=[0, 0, 1, 0.98])
+    if axs.get_legend():
+        axs.get_legend().remove()
+    plt.tight_layout(rect=[0, 0, 1, 0.88])
     plt.savefig(PLOT_PATH + "/plots.pdf", dpi=300, bbox_inches="tight")
     plt.close()
 
