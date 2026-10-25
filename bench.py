@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Benchmark clang variants with the Phoronix Test Suite.
 
+    bench.py doctor  CONFIG     check the setup
     bench.py install CONFIG     only build the tests (and capture crashes)
     bench.py run     CONFIG     build, measure, benchmark and report
     bench.py prepare on|off     reduce benchmark noise (Linux, needs sudo)
@@ -17,6 +18,7 @@ if sys.version_info < (3, 11):
 
 from pbench.commands import cmd_install, cmd_prepare, cmd_run
 from pbench.config import Config, ConfigError
+from pbench.doctor import cmd_doctor
 
 
 def add_selection(p: argparse.ArgumentParser) -> None:
@@ -40,6 +42,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("doctor", help="check tools, paths and LLVM builds")
+    p.add_argument("config", type=Path)
 
     p = sub.add_parser(
         "install", help="only build the tests",
@@ -77,6 +82,8 @@ def main() -> int:
     except (ConfigError, OSError) as e:
         sys.exit(f"error: {e}")
 
+    if args.cmd == "doctor":
+        return cmd_doctor(cfg, args)
     if args.cmd == "install":
         return cmd_install(cfg, args)
     if args.cmd == "run":
