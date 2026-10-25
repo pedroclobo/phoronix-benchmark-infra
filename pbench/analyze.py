@@ -87,7 +87,8 @@ class Compiles:
                 continue
             for o in r["outputs"]:
                 p = Path(o["path"])
-                if p.is_relative_to(root) and p.is_file() and is_binary(p):
+                if (p.is_relative_to(root) and p.is_file() and is_binary(p)
+                        and not is_cmake_probe(p)):
                     out.add(p)
         return sorted(out)
 
@@ -96,6 +97,14 @@ class Compiles:
 
     def crashes(self) -> list[str]:
         return [r["crash"] for r in self.records if r.get("crash")]
+
+
+def is_cmake_probe(path: Path) -> bool:
+    """CMake's compiler checks, e.g. CMakeFiles/<ver>/CompilerIdC/a.out.
+    They stay in the build tree but aren't part of the program."""
+    return any(part.startswith("CompilerId") or part in ("CMakeTmp",
+                                                         "CMakeScratch")
+               for part in path.parts)
 
 
 def audit(install_dir: Path, compiles: Compiles) -> list[Path]:
@@ -303,11 +312,19 @@ def split_by_header(text: str) -> dict[str, list[str]]:
 
 def split_by_address(text: str, syms: list) -> dict[str, list[str]]:
     """Mach-O: headers may name `ltmp0` instead of the function, so assign
-    each instruction to the function whose start address precedes it."""
+    each instruction to the function whose start address precedes it.
+
+    Only `__TEXT,__text` counts. Linked images also have `__stubs` right
+    after it, which would otherwise end up in the last function.
+    """
     starts = [a for a, _ in syms]
     funcs: dict[str, list[str]] = {}
+    in_text = False
     for line in text.splitlines():
-        m = re.match(r"^\s*([0-9a-f]+):\s*(.*)$", line)
+        if line.startswith("Disassembly of section"):
+            in_text = line.rstrip(":").endswith("__TEXT,__text")
+            continue
+        m = re.match(r"^\s*([0-9a-f]+):\s*(.*)$", line) if in_text else None
         if not m:
             continue
         i = bisect.bisect_right(starts, int(m.group(1), 16)) - 1

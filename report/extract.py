@@ -61,8 +61,14 @@ class Results:
     # --- bench.py layout ----------------------------------------------------
 
     def _runs(self):
-        """Yield (test, variant, dir) for every data dir of this opt."""
+        """Yield (test, variant, dir) for every data dir of this opt whose
+        build succeeded. A failed or crashed build compiled only part of the
+        program, so its numbers would look like a big improvement."""
         for d in sorted((self.root / "data").glob(f"*/*/{self.opt}")):
+            status = d / "status.json"
+            if status.is_file() and json.loads(status.read_text()).get(
+                    "status") not in ("ok", "foreign-objects"):
+                continue
             yield d.parent.parent.name, d.parent.name, d
 
     def _compiles(self, d: Path) -> pd.DataFrame:
@@ -126,7 +132,7 @@ class Results:
             "test", "variant", "functions", "strict", "loose", "timed_out"]))
 
     def runtime(self) -> Runtime:
-        files = sorted((self.root / "test-results" / self.opt).glob("*.xml"))
+        files = sorted((self.root / "test-results" / self.opt).glob("*/*.xml"))
         return Runtime(parse_composites(files))
 
     def instruction_count(self) -> pd.DataFrame:

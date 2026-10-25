@@ -2,6 +2,7 @@
 
 import functools
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -25,19 +26,24 @@ def pts_bin(cfg: Config) -> Path:
 
 
 def make_shims(layout: Layout) -> Path:
-    """Symlink every compiler name to the wrapper.
+    """A shim per compiler name that runs the wrapper.
 
     This dir goes first on PATH. A build file that hardcodes `gcc` instead of
     using `$CC` still reaches our clang, and the wrapper records the name it
-    was called as.
+    was called as. The shims run the wrapper with this Python rather than
+    `python3` from PATH, which may be too old for it.
     """
     d = layout.shims
     d.mkdir(parents=True, exist_ok=True)
     for name in SHIM_NAMES:
-        link = d / name
-        if link.is_symlink() or link.exists():
-            link.unlink()
-        link.symlink_to(WRAPPER)
+        shim = d / name
+        if shim.is_symlink() or shim.exists():
+            shim.unlink()
+        shim.write_text(
+            "#!/bin/sh\n"
+            f"BENCH_INVOKED_AS={name} exec {shlex.quote(sys.executable)} "
+            f"{shlex.quote(str(WRAPPER))} \"$@\"\n")
+        shim.chmod(0o755)
     return d
 
 
@@ -78,9 +84,12 @@ def batch_setup(cfg: Config) -> None:
 
 
 def results_name(cfg: Config, opt: str) -> str:
-    """Name of the PTS result file, in the form PTS's sanitizer leaves alone."""
-    raw = f"pbench-{cfg.name}-{opt_name(opt)}".lower()
-    return "".join(c if c.isalnum() else "-" for c in raw)
+    """Name of the PTS result file, sanitized like PTS's clean_save_name:
+    spaces become dashes, anything but ASCII letters, digits and dashes is
+    dropped, repeated dashes collapse, lowercase, at most 126 chars."""
+    raw = f"pbench-{cfg.name}-{opt_name(opt)}".strip().replace(" ", "-")
+    kept = "".join(c for c in raw if c.isascii() and (c.isalnum() or c == "-"))
+    return re.sub("-+", "-", kept).lower()[:126]
 
 
 @functools.cache

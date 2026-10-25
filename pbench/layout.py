@@ -12,7 +12,7 @@
         install-<round>.log                 PTS output
         status.json                         result of the last install
       asm-diff/<test>/<opt>/<variant>.json  functions that differ from baseline
-      test-results/<opt>/composite.xml      PTS runtime results
+      test-results/<opt>/<test>/<variant>.xml   PTS runtime results
       crashes/<variant>/<test>/<opt>/<n>/   crash reproducers
       crashes/index.tsv                     every crash, one per line
       csv/, plots/, README.md               written by `bench.py report`
@@ -53,8 +53,9 @@ class Layout:
     def asm_diff(self, test: str, opt: str) -> Path:
         return self.root / "asm-diff" / test_name(test) / opt_name(opt)
 
-    def test_results(self, opt: str) -> Path:
-        return self.root / "test-results" / opt_name(opt)
+    def test_results(self, test: str, variant: str, opt: str) -> Path:
+        return (self.root / "test-results" / opt_name(opt) / test_name(test)
+                / f"{variant}.xml")
 
     @property
     def shims(self) -> Path:

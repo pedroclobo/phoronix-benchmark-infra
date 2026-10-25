@@ -212,7 +212,7 @@ output_dir/
     inline-remarks.txt        with features.inline_remarks
     install-<round>.log, run.log, status.json
   asm-diff/<test>/<opt>/<variant>.json
-  test-results/<opt>/<test>.xml
+  test-results/<opt>/<test>/<variant>.xml
   crashes/<variant>/<test>/<opt>/<n>/, crashes/index.tsv
   csv/<opt>/, plots/<opt>/, README.md
 ```
@@ -225,7 +225,9 @@ remarks and the crash reproducers.
 - **Compile time**: the sum of all compiler calls of one build, averaged
   over `install_rounds`.
 - **Peak memory**: the largest peak RSS of any single compiler call,
-  averaged over the rounds.
+  averaged over the rounds. `results-to-csv.py` divided the largest peak
+  of all rounds by the number of rounds instead, so absolute numbers from
+  old results repos change; relative ones don't.
 - **Object size**: the `text` bytes (code and read-only data) of every
   binary a compile step produced. Executables only count when they were
   compiled straight from sources, so no code is counted twice. On Mach-O,
@@ -240,6 +242,10 @@ remarks and the crash reproducers.
   differences.
 - **Run time**: whatever the PTS test reports, as % change against the
   baseline.
+
+Only builds that ended `ok` or `foreign-objects` are measured: a build that
+failed halfway would otherwise look like a big compile-time win. CMake's
+compiler checks (`CompilerId*/a.out`) don't count as program code.
 
 ## macOS notes
 

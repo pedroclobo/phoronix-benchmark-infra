@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Compiler wrapper used while PTS builds a test.
 
-`bench.py` puts symlinks to this file first on PATH, named `cc`, `gcc`,
-`clang`, `c++`, `g++`, `clang++`, `nasm` and `yasm`. Build scripts that
-honor `$CC` and build scripts that hardcode `gcc` both end up here. The name
-we were called as decides what to run:
+`bench.py` puts small shims first on PATH, named `cc`, `gcc`, `clang`,
+`c++`, `g++`, `clang++`, `nasm` and `yasm`. Each runs this file with
+bench.py's own Python and passes its name in BENCH_INVOKED_AS. Build scripts
+that honor `$CC` and build scripts that hardcode `gcc` both end up here. The
+name we were called as decides what to run:
 
 - C/C++ names run the variant's clang or clang++ with rewritten flags. We
   measure wall time and peak memory, and record what was produced.
@@ -71,7 +72,8 @@ OPT_RE = re.compile(r"-O([0-3sz]|fast|g)?")
 # Text that only shows up in stderr when LLVM itself crashes, as opposed to an
 # ordinary compile error in the test's sources.
 CRASH_RE = re.compile(
-    rb"PLEASE submit a bug report|Assertion .* failed|LLVM ERROR:|"
+    rb"PLEASE submit a bug report|Assertion .* failed|Assertion failed:|"
+    rb"LLVM ERROR:|"
     rb"frontend command failed due to signal"
 )
 
@@ -202,9 +204,15 @@ def signature(stderr: str) -> str:
     """A short, stable string that identifies this crash in stderr.
 
     `interesting.sh` greps for it, so llvm-reduce keeps only inputs that hit
-    the *same* crash, not any crash.
+    the *same* crash, not any crash. glibc prints assertions as
+    ``Assertion `cond' failed``, macOS as `Assertion failed: (cond), function
+    f, file x, line n.`; the file and line are left out so the signature
+    survives a rebuild.
     """
     m = re.search(r"Assertion `.*' failed", stderr)
+    if m:
+        return m.group(0)
+    m = re.search(r"Assertion failed: \(.*\), function [^,]+", stderr)
     if m:
         return m.group(0)
     m = re.search(r"LLVM ERROR: .*", stderr)
@@ -371,7 +379,7 @@ def capture_crash(clang: Path, args: list[str], stderr: bytes,
 
 
 def main() -> int:
-    invoked_as = Path(sys.argv[0]).name
+    invoked_as = os.environ.get("BENCH_INVOKED_AS") or Path(sys.argv[0]).name
     raw = sys.argv[1:]
 
     if invoked_as in ASM_NAMES:

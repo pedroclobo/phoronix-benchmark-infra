@@ -15,6 +15,9 @@ from .results_repo import ResultsRepo
 
 REPO = Path(__file__).resolve().parent.parent
 
+# Builds whose outputs can be measured and compared.
+BUILT = ("ok", "foreign-objects")
+
 # The names CC and CXX point to. Anything else in `invoked_as` means a build
 # file called a compiler by a hardcoded name and our shim caught it.
 EXPECTED_NAMES = {"clang", "clang++"}
@@ -219,12 +222,21 @@ def measure(cfg: Config, layout: Layout, test: str, variant: Variant,
     analyze.write_sizes(cfg.baseline.llvm_path, bins, install_dir, data)
 
 
+def is_built(layout: Layout, test: str, variant: Variant, opt: str) -> bool:
+    """Whether the last install of (test, variant, opt) succeeded."""
+    status = layout.data(test, variant.name, opt) / "status.json"
+    return (status.is_file()
+            and json.loads(status.read_text()).get("status") in BUILT)
+
+
 def diff_asm(cfg: Config, layout: Layout, test: str, opt: str,
              variants: list[Variant]) -> None:
-    """Compare each variant's code with the baseline's, function by function."""
+    """Compare each built variant's code with the baseline's, function by
+    function. `variants` only holds variants whose build succeeded. The
+    baseline may come from an earlier run (e.g. `run --variant byte`)."""
     base = cfg.baseline
-    if base not in variants:
-        print("  asm diff skipped: baseline not selected")
+    if not is_built(layout, test, base, opt):
+        print("  asm diff skipped: no baseline build")
         return
     base_dir = layout.install_dir(test, base.name, opt)
     base_bins = analyze.Compiles.load(
@@ -268,29 +280,39 @@ def cmd_run(cfg: Config, args) -> int:
     for test in sel.tests:
         print(f"{test}", flush=True)
         for opt in sel.opts:
-            # One PTS result file per (test, opt). Each variant adds its own
-            # entries to it, under TEST_RESULTS_IDENTIFIER = variant name.
-            pts.clear_results(cfg, opt)
+            built = []
             for v in sel.variants:
+                # Drop this variant's old results first, so a failed rebuild
+                # can't leave stale numbers next to the new compile data.
+                runtime = layout.test_results(test, v.name, opt)
+                runtime.unlink(missing_ok=True)
+                (layout.asm_diff(test, opt) / f"{v.name}.json").unlink(
+                    missing_ok=True)
+
                 s = install_one(cfg, layout, test, v, opt,
                                 cfg.install_rounds, args)
                 statuses.append(s)
-                if s["status"] not in ("ok", "foreign-objects"):
+                if s["status"] not in BUILT:
                     continue
+                built.append(v)
                 measure(cfg, layout, test, v, opt)
                 print(f"  {v.name} {opt}: running benchmark", flush=True)
+                # One PTS result file per variant, so rerunning one variant
+                # (--variant) keeps the others' results.
+                pts.clear_results(cfg, opt)
                 env = pts.env(cfg, layout, test, v, opt, cfg.install_rounds,
                               cfg.run_cpu_cores, args.force_unsupported)
                 pts.run(cfg, test, env,
                         layout.data(test, v.name, opt) / "run.log",
                         args.verbose)
+                result = pts.result_file(cfg, opt)
+                if result.is_file():
+                    runtime.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(result, runtime)
+                else:
+                    print(f"  {v.name} {opt}: no PTS result at {result}")
             if cfg.asm_diff:
-                diff_asm(cfg, layout, test, opt, sel.variants)
-            result = pts.result_file(cfg, opt)
-            if result.is_file():
-                dst = layout.test_results(opt)
-                dst.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(result, dst / f"{test_name(test)}.xml")
+                diff_asm(cfg, layout, test, opt, built)
         write_summaries(layout)
         if not args.no_report:
             run_report(cfg, layout)
