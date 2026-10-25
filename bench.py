@@ -4,6 +4,7 @@
     bench.py doctor  CONFIG     check the setup
     bench.py install CONFIG     only build the tests (and capture crashes)
     bench.py run     CONFIG     build, measure, benchmark and report
+    bench.py report  CONFIG     regenerate CSVs and plots
     bench.py prepare on|off     reduce benchmark noise (Linux, needs sudo)
 
 See README.md and configs/example.toml.
@@ -71,6 +72,15 @@ def main() -> int:
     p.add_argument("--no-push", action="store_true",
                    help="commit to the results repo but don't push")
 
+    p = sub.add_parser("report", help="regenerate CSVs and plots")
+    p.add_argument("config", type=Path)
+    p.add_argument("--figure", choices=["default", "paper"],
+                   default="default",
+                   help="`paper` also renders the combined paper figure")
+    p.add_argument("--results", type=Path, metavar="DIR",
+                   help="read results from DIR instead of output_dir, e.g. "
+                        "an old run-all.sh results repo")
+
     p = sub.add_parser("prepare", help="reduce benchmark noise (Linux)")
     p.add_argument("state", choices=["on", "off"])
 
@@ -88,6 +98,16 @@ def main() -> int:
         return cmd_install(cfg, args)
     if args.cmd == "run":
         return cmd_run(cfg, args)
+    if args.cmd == "report":
+        from pbench.layout import Layout
+        try:
+            from report import build
+        except ImportError as e:
+            sys.exit(f"error: {e}; run `pip install -r requirements.txt` "
+                     "and use that Python")
+        build(cfg, Layout(cfg.output_dir), figure=args.figure,
+              results_root=args.results)
+        return 0
     return 1
 
 
