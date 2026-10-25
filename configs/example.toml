@@ -1,0 +1,127 @@
+# Example experiment config for bench.py.
+#
+# One file describes a whole experiment: the compilers to compare, the tests,
+# the opt levels and where results go. Relative paths are relative to this
+# file. `~` and `$VARS` are expanded.
+
+# Used in the PTS result file name and in the README of the results.
+name = "byte-type"
+
+# Tests to build, as PTS identifiers. Either list them here, or point
+# `tests_file` at a file with one test per line (`#` starts a comment).
+tests = [
+  "local/aircrack-ng",
+  "local/botan",
+  "local/compress-pbzip2",
+  "local/compress-zstd",
+  "local/crafty",
+  "local/draco",
+  "local/espeak",
+  "local/fftw",
+  "local/graphics-magick",
+  "local/john-the-ripper",
+  "local/luajit",
+  "local/ngspice",
+  "local/openssl",
+  "local/primesieve",
+  "local/rnnoise",
+  "local/scimark2",
+  "local/sqlite-speedtest",
+  "local/tjbench",
+  "local/z3",
+]
+# tests_file = "profiles.txt"
+
+# Every `-O<level>` in a compile command is replaced by each of these in turn.
+# Each opt level gets its own install dir, data and plots.
+opt_levels = ["-O3"]
+
+# `run` builds each test this many times and averages compile time and peak
+# memory over the rounds. `install` always builds once.
+install_rounds = 3
+
+# Everything bench.py writes goes here. See pbench/layout.py for the layout.
+output_dir = "~/bench/byte-type"
+
+[paths]
+# Checkout of https://github.com/phoronix-test-suite/phoronix-test-suite
+pts = "~/phoronix-test-suite"
+# Checkout of https://github.com/pedroclobo/test-profiles (branch `clang`).
+# bench.py links ~/.phoronix-test-suite/test-profiles to it.
+test_profiles = "~/test-profiles"
+
+[build]
+# Parallel jobs while building (exported to PTS as NUM_CPU_CORES).
+jobs = 16
+
+[run]
+# Cores the benchmarks may use (NUM_CPU_CORES while running).
+cpu_cores = 1
+# Prefix that some test profiles put before the benchmark command, e.g. to
+# pin it to one CPU. Leave empty on macOS, which has no `taskset`.
+pin_cmd = "sudo nice -n -20 taskset -c 1"
+
+[features]
+# Record `-Rpass=inline` remarks during the first build round. This compiles
+# every file a second time, so it is off by default. Needed by
+# `inline_replay_from`.
+inline_remarks = false
+# Compare each variant's machine code with the baseline, function by
+# function, after `run` builds a test.
+asm_diff = true
+# Give up on the asm diff of one test after this many seconds.
+asm_diff_timeout = 600
+# When clang crashes, save a reproducer (IR, command, llvm-reduce test) under
+# <output_dir>/crashes/. Only costs time when something crashes.
+crash_capture = true
+
+[wrapper]
+# Flags removed from every compile command. This is the default list; set it
+# to replace it entirely.
+# drop_flags = ["-Werror", "-Wall", "-Wextra", "-pedantic", ...]
+
+[results_repo]
+# Optional git repo. `run` commits the results there after every test, on a
+# new orphan branch `<date>-<host>`. Leave empty to only write output_dir.
+path = ""
+push = true
+
+# Extra environment variables for PTS and the builds.
+[env]
+# NO_EXTERNAL_DEPENDENCIES = "1"   # don't let PTS install system packages
+
+# Compiler variants. The first one is the baseline: the asm diff and the
+# relative plots compare every other variant against it.
+[[variant]]
+name = "base"
+label = "Baseline"           # legend text in plots
+color = "#E69F00"            # plot color
+llvm_path = "~/llvm/base/build/bin"
+flags = "-march=native"      # appended to every compile; opt level excluded
+
+[[variant]]
+name = "byte"
+label = "Byte Type"
+color = "#0077BB"
+llvm_path = "~/llvm/byte/build/bin"
+flags = "-march=native"
+# Replay the inlining decisions `base` made, so only the change under test
+# differs. Needs `features.inline_remarks = true`.
+# inline_replay_from = "base"
+
+# Per-machine overrides. On the host named `my-macbook` (the short hostname),
+# these keys replace the ones above. Variants are matched by name.
+[host.my-macbook]
+output_dir = "~/bench/byte-type-macos"
+build.jobs = 12
+run.pin_cmd = ""
+paths.pts = "~/dev/phoronix-test-suite"
+paths.test_profiles = "~/dev/test-profiles"
+
+[host.my-macbook.variant.base]
+llvm_path = "/opt/homebrew/opt/llvm/bin"
+flags = "-mcpu=native"
+
+[host.my-macbook.variant.byte]
+llvm_path = "~/dev/llvm-project/build/bin"
+flags = "-mcpu=native"
